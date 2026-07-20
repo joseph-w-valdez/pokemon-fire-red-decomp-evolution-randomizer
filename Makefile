@@ -45,12 +45,16 @@ else
   CPP := $(PREFIX)cpp
 endif
 
-ROM := poke$(BUILD_NAME).gba
+# Output ROM name from hack metadata in config.mk (override with HACK_VERSION=...)
+ROM := $(HACK_NAME)-v$(HACK_VERSION).gba
 OBJ_DIR := $(BUILD_DIR)/$(BUILD_NAME)
 
 ELF := $(ROM:.gba=.elf)
 MAP := $(ROM:.gba=.map)
 SYM := $(ROM:.gba=.sym)
+
+# Prior versioned builds to remove when bumping HACK_VERSION (keep current targets)
+OLD_HACK_ROMS := $(filter-out $(ROM) $(ELF) $(MAP) $(SYM),$(wildcard $(HACK_NAME)-v*.gba $(HACK_NAME)-v*.elf $(HACK_NAME)-v*.map $(HACK_NAME)-v*.sym))
 
 # Commonly used directories
 C_SUBDIR = src
@@ -133,7 +137,7 @@ ALL_BUILDS := firered firered_rev1 firered_rev10 leafgreen leafgreen_rev1 leafgr
 ALL_BUILDS += $(ALL_BUILDS:%=%_modern)
 
 RULES_NO_SCAN += clean clean-assets tidy generated clean-generated
-.PHONY: all rom modern compare $(ALL_BUILDS) $(ALL_BUILDS:%=compare_%)
+.PHONY: all rom modern compare remove-old-hack-roms $(ALL_BUILDS) $(ALL_BUILDS:%=compare_%)
 .PHONY: $(RULES_NO_SCAN)
 
 infoshell = $(foreach line, $(shell $1 | sed "s/ /__SPACE__/g"), $(info $(subst __SPACE__, ,$(line))))
@@ -200,10 +204,19 @@ modern: all
 compare: all
 
 # Other rules
-rom: $(ROM)
+rom: remove-old-hack-roms $(ROM)
 ifeq ($(COMPARE),1)
 	@$(SHA1) $(BUILD_NAME).sha1
 endif
+
+# Drop previous pokemon-random-evolution-v*.gba/.elf/.map/.sym when version changes
+# Also remove legacy poke*.gba outputs from the pret naming scheme
+remove-old-hack-roms:
+ifneq ($(OLD_HACK_ROMS),)
+	@echo "Removing old hack ROM(s): $(OLD_HACK_ROMS)"
+	$(RM) $(OLD_HACK_ROMS)
+endif
+	@$(RM) -f poke$(BUILD_NAME).gba poke$(BUILD_NAME).elf poke$(BUILD_NAME).map poke$(BUILD_NAME).sym
 
 syms: $(SYM)
 
@@ -219,6 +232,7 @@ clean-assets:
 
 tidy:
 	$(RM) $(ALL_BUILDS:%=poke%{.gba,.elf,.map})
+	$(RM) $(HACK_NAME)-v*.gba $(HACK_NAME)-v*.elf $(HACK_NAME)-v*.map $(HACK_NAME)-v*.sym
 	$(RM) -r $(BUILD_DIR)
 
 # "friendly" target names for convenience sake

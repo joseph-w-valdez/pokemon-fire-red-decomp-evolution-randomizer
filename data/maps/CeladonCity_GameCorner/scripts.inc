@@ -98,7 +98,26 @@ CeladonCity_GameCorner_EventScript_ClerkNotEnoughMoney::
 CeladonCity_GameCorner_EventScript_BaldingMan::
 	lock
 	faceplayer
-	msgbox CeladonCity_GameCorner_Text_RumoredTeamRocketRunsThisPlace
+	goto_if_unset FLAG_GOT_COIN_CASE, CeladonCity_GameCorner_EventScript_GamblerNoCoinCase
+	checkcoins VAR_TEMP_1
+	goto_if_eq VAR_TEMP_1, MAX_COINS, CeladonCity_GameCorner_EventScript_CoinCaseFull
+	goto_if_set FLAG_TALKED_GAME_CORNER_PLANT, CeladonCity_GameCorner_EventScript_BaldingManRepeat
+	msgbox CeladonCity_GameCorner_Text_BaldingManGiveCoins
+	goto CeladonCity_GameCorner_EventScript_BaldingManGiveCoins
+	end
+
+CeladonCity_GameCorner_EventScript_BaldingManRepeat::
+	msgbox CeladonCity_GameCorner_Text_BaldingManGiveCoinsRepeat
+	goto CeladonCity_GameCorner_EventScript_BaldingManGiveCoins
+	end
+
+CeladonCity_GameCorner_EventScript_BaldingManGiveCoins::
+	addcoins MAX_COINS
+	textcolor NPC_TEXT_COLOR_NEUTRAL
+	msgbox CeladonCity_GameCorner_Text_Received9999Coins
+	playse SE_SHOP
+	waitse
+	setflag FLAG_TALKED_GAME_CORNER_PLANT
 	goto CeladonCity_GameCorner_EventScript_FaceSlotMachine
 	end
 
@@ -144,6 +163,11 @@ CeladonCity_GameCorner_EventScript_GamblerNoCoinCase::
 	goto CeladonCity_GameCorner_EventScript_FaceSlotMachine
 	end
 
+CeladonCity_GameCorner_EventScript_CoinCaseFull::
+	msgbox CeladonCity_GameCorner_Text_CoinCaseIsFull
+	goto CeladonCity_GameCorner_EventScript_FaceSlotMachine
+	end
+
 CeladonCity_GameCorner_EventScript_FisherAlreadyGotCoins::
 	msgbox CeladonCity_GameCorner_Text_WinsComeAndGo
 	goto CeladonCity_GameCorner_EventScript_FaceSlotMachine
@@ -172,7 +196,26 @@ CeladonCity_GameCorner_EventScript_Woman2::
 CeladonCity_GameCorner_EventScript_OldMan::
 	lock
 	faceplayer
-	msgbox CeladonCity_GameCorner_Text_SoEasyToGetHooked
+	goto_if_unset FLAG_GOT_COIN_CASE, CeladonCity_GameCorner_EventScript_GamblerNoCoinCase
+	checkcoins VAR_TEMP_1
+	goto_if_eq VAR_TEMP_1, MAX_COINS, CeladonCity_GameCorner_EventScript_CoinCaseFull
+	goto_if_set FLAG_TALKED_GAME_CORNER_QUITTER, CeladonCity_GameCorner_EventScript_OldManRepeat
+	msgbox CeladonCity_GameCorner_Text_OldManGiveCoins
+	goto CeladonCity_GameCorner_EventScript_OldManGiveCoins
+	end
+
+CeladonCity_GameCorner_EventScript_OldManRepeat::
+	msgbox CeladonCity_GameCorner_Text_OldManGiveCoinsRepeat
+	goto CeladonCity_GameCorner_EventScript_OldManGiveCoins
+	end
+
+CeladonCity_GameCorner_EventScript_OldManGiveCoins::
+	addcoins MAX_COINS
+	textcolor NPC_TEXT_COLOR_NEUTRAL
+	msgbox CeladonCity_GameCorner_Text_Received9999Coins
+	playse SE_SHOP
+	waitse
+	setflag FLAG_TALKED_GAME_CORNER_QUITTER
 	goto CeladonCity_GameCorner_EventScript_FaceSlotMachine
 	end
 
@@ -206,27 +249,26 @@ CeladonCity_GameCorner_EventScript_ScientistAlreadyGotCoins::
 CeladonCity_GameCorner_EventScript_Gentleman::
 	lock
 	faceplayer
-	goto_if_set FLAG_GOT_20_COINS_FROM_GAMBLER_2, CeladonCity_GameCorner_EventScript_GentlemanAlreadyGotCoins
-	msgbox CeladonCity_GameCorner_Text_HereAreSomeCoinsShoo
 	goto_if_unset FLAG_GOT_COIN_CASE, CeladonCity_GameCorner_EventScript_GamblerNoCoinCase
 	checkcoins VAR_TEMP_1
-	goto_if_ge VAR_TEMP_1, (MAX_COINS + 1) - 20, CeladonCity_GameCorner_EventScript_GentlemanNoRoomForCoins
-	addcoins 20
+	goto_if_eq VAR_TEMP_1, MAX_COINS, CeladonCity_GameCorner_EventScript_CoinCaseFull
+	goto_if_set FLAG_GOT_20_COINS_FROM_GAMBLER_2, CeladonCity_GameCorner_EventScript_GentlemanRepeat
+	msgbox CeladonCity_GameCorner_Text_GentlemanGiveCoins
+	goto CeladonCity_GameCorner_EventScript_GentlemanGiveCoins
+	end
+
+CeladonCity_GameCorner_EventScript_GentlemanRepeat::
+	msgbox CeladonCity_GameCorner_Text_GentlemanGiveCoinsRepeat
+	goto CeladonCity_GameCorner_EventScript_GentlemanGiveCoins
+	end
+
+CeladonCity_GameCorner_EventScript_GentlemanGiveCoins::
+	addcoins MAX_COINS
 	textcolor NPC_TEXT_COLOR_NEUTRAL
-	msgbox CeladonCity_GameCorner_Text_Received20CoinsFromMan
+	msgbox CeladonCity_GameCorner_Text_Received9999Coins
 	playse SE_SHOP
 	waitse
 	setflag FLAG_GOT_20_COINS_FROM_GAMBLER_2
-	goto CeladonCity_GameCorner_EventScript_FaceSlotMachine
-	end
-
-CeladonCity_GameCorner_EventScript_GentlemanNoRoomForCoins::
-	msgbox CeladonCity_GameCorner_Text_YouveGotPlentyCoins
-	goto CeladonCity_GameCorner_EventScript_FaceSlotMachine
-	end
-
-CeladonCity_GameCorner_EventScript_GentlemanAlreadyGotCoins::
-	msgbox CeladonCity_GameCorner_Text_WatchReelsClosely
 	goto CeladonCity_GameCorner_EventScript_FaceSlotMachine
 	end
 

@@ -359,7 +359,7 @@ static void Task_DoPokeballSendOutAnim(u8 taskId)
     if (gTasks[taskId].tFrames == 0)
     {
         gTasks[taskId].tFrames++;
-        return;
+        // Fall through immediately for ~3x faster send-out start
     }
 
     throwCaseId = gTasks[taskId].tThrowId;
@@ -688,10 +688,8 @@ static void Task_PlayCryWhenReleasedFromBall(u8 taskId)
     {
     case 0:
     default:
-        if (gTasks[taskId].data[8] < 3)
-            gTasks[taskId].data[8]++;
-        else
-            gTasks[taskId].tCryTaskState = wantedCry + 1;
+        // Skip the short pre-cry delay (~3x faster send-out audio)
+        gTasks[taskId].tCryTaskState = wantedCry + 1;
         break;
     case 1:
         // Play single cry
@@ -704,7 +702,7 @@ static void Task_PlayCryWhenReleasedFromBall(u8 taskId)
         break;
     case 2:
         StopCryAndClearCrySongs();
-        gTasks[taskId].tCryTaskFrames = 3;
+        gTasks[taskId].tCryTaskFrames = 1; // was 3
         gTasks[taskId].tCryTaskState = 20;
         break;
     case 20:
@@ -724,7 +722,7 @@ static void Task_PlayCryWhenReleasedFromBall(u8 taskId)
         }
         break;
     case 3:
-        gTasks[taskId].tCryTaskFrames = 6;
+        gTasks[taskId].tCryTaskFrames = 2; // was 6
         gTasks[taskId].tCryTaskState = 30;
         break;
     case 30:
@@ -739,7 +737,7 @@ static void Task_PlayCryWhenReleasedFromBall(u8 taskId)
         if (!IsCryPlayingOrClearCrySongs())
         {
             StopCryAndClearCrySongs();
-            gTasks[taskId].tCryTaskFrames = 3;
+            gTasks[taskId].tCryTaskFrames = 1; // was 3
             gTasks[taskId].tCryTaskState++;
         }
         break;
@@ -858,7 +856,7 @@ static void HandleBallAnimEnd(struct Sprite *sprite)
     }
     else
     {
-        gSprites[gBattlerSpriteIds[battlerId]].data[1] -= 288;
+        gSprites[gBattlerSpriteIds[battlerId]].data[1] -= 864; // was 288; ~3x faster emerge bounce
         gSprites[gBattlerSpriteIds[battlerId]].y2 = gSprites[gBattlerSpriteIds[battlerId]].data[1] >> 8;
     }
     if (sprite->animEnded && affineAnimEnded)
@@ -911,7 +909,7 @@ static void SpriteCB_BallThrow_CaptureMon(struct Sprite *sprite)
 
 static void SpriteCB_PlayerMonSendOut_1(struct Sprite *sprite)
 {
-    sprite->data[0] = 25;
+    sprite->data[0] = 8; // was 25; ~3x faster ball arc
     sprite->data[2] = GetBattlerSpriteCoord(sprite->sBattler, BATTLER_COORD_X_2);
     sprite->data[4] = GetBattlerSpriteCoord(sprite->sBattler, BATTLER_COORD_Y_PIC_OFFSET) + 24;
     sprite->data[5] = -30;
@@ -980,7 +978,7 @@ static void SpriteCB_PlayerMonSendOut_2(struct Sprite *sprite)
 
 static void SpriteCB_ReleaseMon2FromBall(struct Sprite *sprite)
 {
-    if (sprite->data[0]++ > 24)
+    if (sprite->data[0]++ > 8) // was 24; ~3x faster double send-out stagger
     {
         sprite->data[0] = 0;
         sprite->callback = SpriteCB_ReleaseMonFromBall;
@@ -990,7 +988,7 @@ static void SpriteCB_ReleaseMon2FromBall(struct Sprite *sprite)
 static void SpriteCB_OpponentMonSendOut(struct Sprite *sprite)
 {
     sprite->data[0]++;
-    if (sprite->data[0] > 15)
+    if (sprite->data[0] > 5) // was 15; ~3x faster opponent release
     {
         sprite->data[0] = 0;
         if (IsDoubleBattle() && gBattleSpritesDataPtr->animationData->introAnimActive
@@ -1251,7 +1249,7 @@ void StartHealthboxSlideIn(u8 battlerId)
 static void SpriteCB_HealthboxSlideInDelayed(struct Sprite *sprite)
 {
     sprite->sDelayTimer++;
-    if (sprite->sDelayTimer == 20)
+    if (sprite->sDelayTimer >= 7) // was 20; ~3x faster
     {
         sprite->sDelayTimer = 0;
         sprite->callback = SpriteCB_HealthboxSlideIn;
@@ -1260,10 +1258,19 @@ static void SpriteCB_HealthboxSlideInDelayed(struct Sprite *sprite)
 
 static void SpriteCB_HealthboxSlideIn(struct Sprite *sprite)
 {
-    sprite->x2 -= sprite->sSpeedX;
-    sprite->y2 -= sprite->sSpeedY;
-    if (sprite->x2 == 0 && sprite->y2 == 0)
-        sprite->callback = SpriteCallbackDummy;
+    u8 i;
+
+    // 3x faster healthbox slide-in
+    for (i = 0; i < 3; i++)
+    {
+        sprite->x2 -= sprite->sSpeedX;
+        sprite->y2 -= sprite->sSpeedY;
+        if (sprite->x2 == 0 && sprite->y2 == 0)
+        {
+            sprite->callback = SpriteCallbackDummy;
+            return;
+        }
+    }
 }
 
 #undef sSpeedX

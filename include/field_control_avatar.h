@@ -28,6 +28,7 @@ void ClearPoisonStepCounter(void);
 int SetCableClubWarp(void);
 void HandleBoulderFallThroughHole(struct ObjectEvent *);
 bool8 dive_warp(struct MapPosition * pos, u16 behavior);
+u8 TrySetDiveWarp(void);
 bool8 IsDirectionalStairWarpMetatileBehavior(u16 metatileBehavior, u8 playerDirection);
 const u8 *GetInteractedLinkPlayerScript(struct MapPosition *position, u8 metatileBehavior, u8 direction);
 const u8 *GetCoordEventScriptAtMapPosition(struct MapPosition *position);

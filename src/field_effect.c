@@ -1630,9 +1630,8 @@ static bool8 waterfall_1_do_anim_probably(struct Task *task, struct ObjectEvent 
     if (!ObjectEventIsMovementOverridden(playerObj))
     {
         ObjectEventClearHeldMovementIfFinished(playerObj);
-        gFieldEffectArguments[0] = task->data[1];
-        FieldEffectStart(FLDEFF_FIELD_MOVE_SHOW_MON_INIT);
-        task->data[0]++;
+        // Key-item tools: skip Pokémon reveal, start climbing immediately.
+        task->data[0] = 3;
     }
     return FALSE;
 }
@@ -1704,8 +1703,7 @@ static bool8 DiveFieldEffect_Init(struct Task *task)
 static bool8 DiveFieldEffect_ShowMon(struct Task *task)
 {
     LockPlayerFieldControls();
-    gFieldEffectArguments[0] = task->data[15];
-    FieldEffectStart(FLDEFF_FIELD_MOVE_SHOW_MON_INIT);
+    // Key-item tools: skip Pokémon reveal.
     task->data[0]++;
     return FALSE;
 }
@@ -1714,12 +1712,9 @@ static bool8 DiveFieldEffect_TryWarp(struct Task *task)
 {
     struct MapPosition pos;
     PlayerGetDestCoords(&pos.x, &pos.y);
-    if (!FieldEffectActiveListContains(FLDEFF_FIELD_MOVE_SHOW_MON))
-    {
-        dive_warp(&pos, gObjectEvents[gPlayerAvatar.objectEventId].currentMetatileBehavior);
-        DestroyTask(FindTaskIdByFunc(Task_UseDive));
-        FieldEffectActiveListRemove(FLDEFF_USE_DIVE);
-    }
+    dive_warp(&pos, gObjectEvents[gPlayerAvatar.objectEventId].currentMetatileBehavior);
+    DestroyTask(FindTaskIdByFunc(Task_UseDive));
+    FieldEffectActiveListRemove(FLDEFF_USE_DIVE);
     return FALSE;
 }
 
@@ -3023,8 +3018,7 @@ static void UseSurfEffect_3(struct Task *task)
     objectEvent = &gObjectEvents[gPlayerAvatar.objectEventId];
     if (ObjectEventCheckHeldMovementStatus(objectEvent))
     {
-        gFieldEffectArguments[0] = task->data[15] | 0x80000000;
-        FieldEffectStart(FLDEFF_FIELD_MOVE_SHOW_MON_INIT);
+        // Key-item tools: skip Pokémon reveal, mount the surf blob next.
         task->data[0]++;
     }
 }
@@ -3032,18 +3026,16 @@ static void UseSurfEffect_3(struct Task *task)
 static void UseSurfEffect_4(struct Task *task)
 {
     struct ObjectEvent * objectEvent;
-    if (!FieldEffectActiveListContains(FLDEFF_FIELD_MOVE_SHOW_MON))
-    {
-        objectEvent = &gObjectEvents[gPlayerAvatar.objectEventId];
-        ObjectEventSetGraphicsId(objectEvent, GetPlayerAvatarGraphicsIdByStateId(PLAYER_AVATAR_GFX_RIDE));
-        ObjectEventClearHeldMovementIfFinished(objectEvent);
-        ObjectEventSetHeldMovement(objectEvent, GetJumpSpecialMovementAction(objectEvent->movementDirection));
-        gFieldEffectArguments[0] = task->data[1];
-        gFieldEffectArguments[1] = task->data[2];
-        gFieldEffectArguments[2] = gPlayerAvatar.objectEventId;
-        objectEvent->fieldEffectSpriteId = FieldEffectStart(FLDEFF_SURF_BLOB);
-        task->data[0]++;
-    }
+
+    objectEvent = &gObjectEvents[gPlayerAvatar.objectEventId];
+    ObjectEventSetGraphicsId(objectEvent, GetPlayerAvatarGraphicsIdByStateId(PLAYER_AVATAR_GFX_RIDE));
+    ObjectEventClearHeldMovementIfFinished(objectEvent);
+    ObjectEventSetHeldMovement(objectEvent, GetJumpSpecialMovementAction(objectEvent->movementDirection));
+    gFieldEffectArguments[0] = task->data[1];
+    gFieldEffectArguments[1] = task->data[2];
+    gFieldEffectArguments[2] = gPlayerAvatar.objectEventId;
+    objectEvent->fieldEffectSpriteId = FieldEffectStart(FLDEFF_SURF_BLOB);
+    task->data[0]++;
 }
 
 static void UseSurfEffect_5(struct Task *task)

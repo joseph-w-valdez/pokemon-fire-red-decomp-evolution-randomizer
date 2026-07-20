@@ -15,7 +15,12 @@ CeruleanCity_PokemonCenter_1F_EventScript_Nurse::
 	end
 
 CeruleanCity_PokemonCenter_1F_EventScript_Gentleman::
-	msgbox CeruleanCity_PokemonCenter_1F_Text_EveryoneCallsBillPokemaniac, MSGBOX_NPC
+	lock
+	faceplayer
+	msgbox CeruleanCity_PokemonCenter_1F_Text_MonsKeepGettingSick
+	special InfectFirstPartyMonWithPokerus
+	msgbox CeruleanCity_PokemonCenter_1F_Text_GaveYourLeadPokerus
+	release
 	end
 
 CeruleanCity_PokemonCenter_1F_EventScript_Rocker::
@@ -31,5 +36,16 @@ CeruleanCity_PokemonCenter_1F_EventScript_Youngster::
 	end
 
 CeruleanCity_PokemonCenter_1F_EventScript_Lass::
-	msgbox CeruleanCity_PokemonCenter_1F_Text_TryTradingUpstairs, MSGBOX_NPC
+	lock
+	faceplayer
+	goto_if_set FLAG_GOT_SHINY_CHARM, CeruleanCity_PokemonCenter_1F_EventScript_LassAlreadyGaveCharm
+	msgbox CeruleanCity_PokemonCenter_1F_Text_LoveShinyHunting
+	giveitem_msg CeruleanCity_PokemonCenter_1F_Text_ReceivedShinyCharm, ITEM_SHINY_CHARM, 1, MUS_OBTAIN_KEY_ITEM
+	setflag FLAG_GOT_SHINY_CHARM
+	release
+	end
+
+CeruleanCity_PokemonCenter_1F_EventScript_LassAlreadyGaveCharm::
+	msgbox CeruleanCity_PokemonCenter_1F_Text_KeepHuntingShinies
+	release
 	end

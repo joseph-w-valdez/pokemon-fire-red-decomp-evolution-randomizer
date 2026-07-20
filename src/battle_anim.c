@@ -18,6 +18,10 @@
 
 #define ANIM_SPRITE_INDEX_COUNT 8
 
+// Halve anim script delay commands (~2x). Visual tasks/sprites are
+// double-ticked in BattleMainCB2 while gAnimScriptActive.
+#define BATTLE_ANIM_SPEED 2
+
 EWRAM_DATA static const u8 *sBattleAnimScriptPtr = NULL;
 EWRAM_DATA static const u8 *sBattleAnimScriptRetAddr = NULL;
 EWRAM_DATA void (*gAnimScriptCallback)(void) = NULL;
@@ -436,6 +440,8 @@ static void Cmd_delay(void)
     sAnimFramesToWait = sBattleAnimScriptPtr[0];
     if (sAnimFramesToWait == 0)
         sAnimFramesToWait = -1;
+    else
+        sAnimFramesToWait = (sAnimFramesToWait + BATTLE_ANIM_SPEED - 1) / BATTLE_ANIM_SPEED;
     sBattleAnimScriptPtr++;
     gAnimScriptCallback = WaitAnimFrameCount;
 }

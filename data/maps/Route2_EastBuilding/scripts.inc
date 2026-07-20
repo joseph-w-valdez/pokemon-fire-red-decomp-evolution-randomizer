@@ -19,6 +19,8 @@ Route2_EastBuilding_EventScript_Aide::
 	checkitemspace ITEM_HM05
 	goto_if_eq VAR_RESULT, FALSE, Aide_EventScript_NoRoomForItem
 	giveitem_msg Route2_EastBuilding_Text_ReceivedHM05FromAide, ITEM_HM05
+	msgbox Route2_EastBuilding_Text_AlsoTakeRingLight
+	giveitem_msg Route2_EastBuilding_Text_ReceivedRingLightFromAide, ITEM_RING_LIGHT, 1, MUS_OBTAIN_KEY_ITEM
 	setflag FLAG_GOT_HM05
 	msgbox Route2_EastBuilding_Text_ExplainHM05
 	release

@@ -191,7 +191,8 @@ static void BikeTransition_MoveDirection(u8 direction)
             else if (PlayerIsMovingOnRockStairs(direction))
                 PlayerWalkFast(direction);
             else
-                PlayerRideWaterCurrent(direction);
+                // Faster than the buffed run (8× original walk).
+                PlayerWalkFastest(direction);
         }
     }
 }
@@ -201,7 +202,7 @@ static void BikeTransition_Downhill(u8 v)
     u8 collision = GetBikeCollision(DIR_SOUTH);
 
     if (collision == COLLISION_NONE)
-        PlayerWalkFaster(DIR_SOUTH);
+        PlayerWalkFastest(DIR_SOUTH);
     else if (collision == COLLISION_LEDGE_JUMP)
         PlayerJumpLedge(DIR_SOUTH);
 }
@@ -252,12 +253,9 @@ bool8 RS_IsRunningDisallowed(u8 r0)
 
 bool32 IsRunningDisallowed(u8 metatileBehavior)
 {
-    if (!gMapHeader.allowRunning)
-        return TRUE;
-    if (MetatileBehaviorForbidsBiking(metatileBehavior) != TRUE)
-        return FALSE;
-    else
-        return TRUE;
+    // Allow running everywhere (indoors, caves, etc.).
+    (void)metatileBehavior;
+    return FALSE;
 }
 
 static bool8 MetatileBehaviorForbidsBiking(u8 metatileBehavior)
@@ -360,14 +358,22 @@ static void Bike_SetBikeStill(void)
 
 s16 GetPlayerSpeed(void)
 {
-    s16 machBikeSpeeds[] = { PLAYER_SPEED_NORMAL, PLAYER_SPEED_FAST, PLAYER_SPEED_FASTEST };
-
-    if (gPlayerAvatar.flags & PLAYER_AVATAR_FLAG_MACH_BIKE)
-        return machBikeSpeeds[gPlayerAvatar.bikeFrameCounter];
-    else if (gPlayerAvatar.flags & PLAYER_AVATAR_FLAG_ACRO_BIKE)
+    if (gPlayerAvatar.flags & (PLAYER_AVATAR_FLAG_MACH_BIKE | PLAYER_AVATAR_FLAG_ACRO_BIKE))
+    {
+        // Report faster-than-run, but not FASTEST — that flag blocks Start/A while moving.
+        if (gPlayerAvatar.runningState == MOVING)
+            return PLAYER_SPEED_FASTER;
+        return PLAYER_SPEED_NORMAL;
+    }
+    else if (gPlayerAvatar.flags & PLAYER_AVATAR_FLAG_DASH)
         return PLAYER_SPEED_FASTER;
-    else if (gPlayerAvatar.flags & (PLAYER_AVATAR_FLAG_SURFING | PLAYER_AVATAR_FLAG_DASH))
-        return PLAYER_SPEED_FAST;
+    else if (gPlayerAvatar.flags & PLAYER_AVATAR_FLAG_SURFING)
+    {
+        // Same reported speed class as bike so Start/A still work while moving.
+        if (gPlayerAvatar.runningState == MOVING)
+            return PLAYER_SPEED_FASTER;
+        return PLAYER_SPEED_NORMAL;
+    }
     else
         return PLAYER_SPEED_NORMAL;
 }

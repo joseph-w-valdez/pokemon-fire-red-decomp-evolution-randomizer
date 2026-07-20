@@ -20,6 +20,7 @@
 #include "constants/event_objects.h"
 #include "constants/trainer_types.h"
 #include "constants/union_room.h"
+#include "follow_me.h"
 
 static void MoveCoordsInDirection(u32, s16 *, s16 *, s16, s16);
 static bool8 ObjectEventExecSingleMovementAction(struct ObjectEvent *, struct Sprite *);
@@ -1257,6 +1258,8 @@ u8 GetFirstInactiveObjectEventId(void)
 
 u8 GetObjectEventIdByLocalIdAndMap(u8 localId, u8 mapNum, u8 mapGroupId)
 {
+    if (localId == LOCALID_FOLLOWER)
+        return GetFollowerObjectId();
     if (localId < LOCALID_PLAYER)
     {
         return GetObjectEventIdByLocalIdAndMapInternal(localId, mapNum, mapGroupId);
@@ -1511,7 +1514,7 @@ static bool8 GetAvailableObjectEventId(u16 localId, u8 mapNum, u8 mapGroup, u8 *
     return FALSE;
 }
 
-static void RemoveObjectEvent(struct ObjectEvent *objectEvent)
+void RemoveObjectEvent(struct ObjectEvent *objectEvent)
 {
     objectEvent->active = FALSE;
     RemoveObjectEventInternal(objectEvent);
@@ -1832,7 +1835,7 @@ void RemoveObjectEventsOutsideView(void)
         {
             struct ObjectEvent *objectEvent = &gObjectEvents[i];
 
-            if (objectEvent->active && !objectEvent->isPlayer)
+            if (objectEvent->active && !objectEvent->isPlayer && i != GetFollowerObjectId())
                 RemoveObjectEventIfOutsideView(objectEvent);
         }
     }
@@ -4904,7 +4907,7 @@ static bool8 DoesObjectCollideWithObjectAt(struct ObjectEvent *objectEvent, s16 
     for (i = 0; i < OBJECT_EVENTS_COUNT; i++)
     {
         curObject = &gObjectEvents[i];
-        if (curObject->active && curObject != objectEvent)
+        if (curObject->active && curObject != objectEvent && !FollowMe_IsCollisionExempt(curObject, objectEvent))
         {
             if ((curObject->currentCoords.x == x && curObject->currentCoords.y == y) || (curObject->previousCoords.x == x && curObject->previousCoords.y == y))
             {
@@ -5058,6 +5061,7 @@ bool8 ObjectEventSetHeldMovement(struct ObjectEvent *objectEvent, u8 movementAct
     objectEvent->heldMovementActive = TRUE;
     objectEvent->heldMovementFinished = FALSE;
     gSprites[objectEvent->spriteId].data[2] = 0;
+    FollowMe(objectEvent, movementActionId, FALSE);
     return FALSE;
 }
 
@@ -5332,7 +5336,8 @@ void InitMovementNormal(struct ObjectEvent *objectEvent, struct Sprite *sprite, 
 
 void StartRunningAnim(struct ObjectEvent *objectEvent, struct Sprite *sprite, u8 direction)
 {
-    InitNpcForMovement(objectEvent, sprite, direction, MOVE_SPEED_FAST_1);
+    // Run at 4 pixels/frame, four times the original walking speed.
+    InitNpcForMovement(objectEvent, sprite, direction, MOVE_SPEED_FASTER);
     SetStepAnimHandleAlternation(objectEvent, sprite, GetRunningDirectionAnimNum(objectEvent->facingDirection));
 }
 

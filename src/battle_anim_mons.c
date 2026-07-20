@@ -1066,9 +1066,18 @@ void AnimTranslateLinear_WithFollowup(struct Sprite *sprite)
 
 static void PlayerThrowBall_AnimTranslateLinear_WithFollowup(struct Sprite *sprite)
 {
+    u8 i;
+
     UpdatePlayerPosInThrowAnim(sprite);
-    if (AnimTranslateLinear(sprite))
-        SetCallbackToStoredInData6(sprite);
+    // 3x faster trainer throw slide-off
+    for (i = 0; i < 3; i++)
+    {
+        if (AnimTranslateLinear(sprite))
+        {
+            SetCallbackToStoredInData6(sprite);
+            return;
+        }
+    }
 }
 
 void InitAnimLinearTranslationWithSpeed(struct Sprite *sprite)

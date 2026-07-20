@@ -13,16 +13,20 @@ SafariZone_SecretHouse_Text_ReceivedHM03FromAttendant::
     .string "{PLAYER} received HM03\n"
     .string "from the attendant!$"
 
+SafariZone_SecretHouse_Text_AlsoTakePoolNoodle::
+    .string "Wait! Take this POOL NOODLE\n"
+    .string "as an extra prize!$"
+
+SafariZone_SecretHouse_Text_ReceivedPoolNoodleFromAttendant::
+    .string "{PLAYER} received the POOL NOODLE\n"
+    .string "from the attendant!$"
+
 SafariZone_SecretHouse_Text_ExplainSurf::
-    .string "HM03 is SURF.\p"
-    .string "POKéMON will be able to ferry you\n"
-    .string "across water using it.\p"
-    .string "And, this HM isn't disposable, so\n"
-    .string "you can use it over and over.\p"
-    .string "You're super lucky for winning this\n"
-    .string "fabulous prize!$"
+    .string "With the right BADGE, use the\n"
+    .string "POOL NOODLE from your BAG.\p"
+    .string "It lets you ride across water.\n"
+    .string "You're super lucky!$"
 
 SafariZone_SecretHouse_Text_DontHaveRoomForPrize::
     .string "You don't have room for this\n"
     .string "fabulous prize!$"
-

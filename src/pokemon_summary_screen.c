@@ -34,6 +34,7 @@
 #include "mon_markings.h"
 #include "pokemon_storage_system.h"
 #include "constants/sound.h"
+#include "evolution_scene.h"
 
 // needs conflicting header to match (curIndex is s8 in the function, but has to be defined as u8 here)
 extern s16 SeekToNextMonInBox(struct BoxPokemon * boxMons, u8 curIndex, u8 maxIndex, u8 flags);
@@ -3769,7 +3770,9 @@ static u8 PokeSum_CanForgetSelectedMove(void)
 
     move = GetMonMoveBySlotId(&sMonSummaryScreen->currentMon, sMoveSelectionCursorPos);
 
-    if (IsMoveHm(move) == TRUE && sMonSummaryScreen->mode != PSS_MODE_FORGET_MOVE)
+    if (IsMoveHm(move) == TRUE
+        && sMonSummaryScreen->mode != PSS_MODE_FORGET_MOVE
+        && !gRandomLevelEvoActive)
         return FALSE;
 
     return TRUE;

@@ -16,6 +16,7 @@ enum {
 u8 CreateWarpArrowSprite(void);
 void SetSurfBlob_BobState(u8 spriteId, u8 bobState);
 void SetSurfBlob_DontSyncAnim(u8 spriteId, bool8 value);
+u8 StartUnderwaterSurfBlobBobbing(u8 oldSpriteId);
 void StartAshFieldEffect(s16, s16, u16, s16);
 void StartRevealDisguise(struct ObjectEvent *);
 bool8 UpdateRevealDisguise(struct ObjectEvent *);

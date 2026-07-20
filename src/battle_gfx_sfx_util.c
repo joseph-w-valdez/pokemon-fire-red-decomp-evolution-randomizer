@@ -162,9 +162,18 @@ void SpriteCB_TrainerSlideIn(struct Sprite *sprite)
 {
     if (!(gIntroSlideFlags & 1))
     {
-        sprite->x2 += sprite->data[0];
-        if (sprite->x2 == 0)
-            sprite->callback = SpriteCallbackDummy;
+        u8 i;
+
+        // 3x faster slide-in (same pixel step, more updates per frame)
+        for (i = 0; i < 3; i++)
+        {
+            sprite->x2 += sprite->data[0];
+            if (sprite->x2 == 0)
+            {
+                sprite->callback = SpriteCallbackDummy;
+                return;
+            }
+        }
     }
 }
 

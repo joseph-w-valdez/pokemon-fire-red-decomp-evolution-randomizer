@@ -33,9 +33,8 @@ static void FieldCB_UseStrength(void)
 
 bool8 FldEff_UseStrength(void)
 {
-    u8 taskId = CreateFieldEffectShowMon();
+    u8 taskId = CreateFieldEffectNoShowMon();
     FLDEFF_SET_FUNC_TO_DATA(ShowMonCB_UseStrength);
-    GetMonNickname(&gPlayerParty[gFieldEffectArguments[0]], gStringVar1);
     return FALSE;
 }
 

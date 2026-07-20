@@ -100,7 +100,13 @@ PokedexRating_Text_YouveCompletedDex::
 	.string "You've finally completed the\n"
 	.string "POKéDEX!\p"
 	.string "It's magnificent!\n"
-	.string "Truly, this is a fantastic feat!$"
+	.string "Truly, this is a fantastic feat!\p"
+	.string "I used to hand out SHINY CHARMS\n"
+	.string "for this…\p"
+	.string "But I already gave a bunch to\n"
+	.string "someone in CERULEAN CITY.\p"
+	.string "Ask around their POKéMON CENTER!\n"
+	.string "They should still have extras.$"
 
 PokedexRating_Text_Wroooaaarrr::
 	.string "Wroooooooaaaaaarrrr!$"
@@ -111,7 +117,11 @@ PokedexRating_Text_HaHa::
 PokedexRating_Text_ThankYouMadeDreamReality::
 	.string "Thank you, {PLAYER}!\n"
 	.string "Sincerely, thank you!\l"
-	.string "You've made my dream a reality!$"
+	.string "You've made my dream a reality!\p"
+	.string "About that SHINY CHARM…\n"
+	.string "I already gave a bunch away.\p"
+	.string "Try the POKéMON CENTER in\n"
+	.string "CERULEAN CITY!$"
 
 PokedexRating_Text_LoveSeeingYourPokedex::
 	.string "OAK: Ah, welcome!\p"

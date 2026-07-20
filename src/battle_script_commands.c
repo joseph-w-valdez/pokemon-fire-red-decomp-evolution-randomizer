@@ -8,6 +8,7 @@
 #include "pokemon_icon.h"
 #include "mail.h"
 #include "event_data.h"
+#include "nuzlocke.h"
 #include "strings.h"
 #include "pokemon_special_anim.h"
 #include "pokemon_storage_system.h"
@@ -3145,47 +3146,71 @@ static void Cmd_getexp(void)
             u16 calculatedExp;
             s32 viaSentIn;
 
-            for (viaSentIn = 0, i = 0; i < PARTY_SIZE; i++)
-            {
-                if (GetMonData(&gPlayerParty[i], MON_DATA_SPECIES) == SPECIES_NONE || GetMonData(&gPlayerParty[i], MON_DATA_HP) == 0)
-                    continue;
-                if (gBitTable[i] & sentIn)
-                    viaSentIn++;
-
-                item = GetMonData(&gPlayerParty[i], MON_DATA_HELD_ITEM);
-
-                if (item == ITEM_ENIGMA_BERRY)
-                    holdEffect = gSaveBlock1Ptr->enigmaBerry.holdEffect;
-                else
-                    holdEffect = ItemId_GetHoldEffect(item);
-
-                if (holdEffect == HOLD_EFFECT_EXP_SHARE)
-                    viaExpShare++;
-            }
-
             calculatedExp = gSpeciesInfo[gBattleMons[gBattlerFainted].species].expYield * gBattleMons[gBattlerFainted].level / 7;
 
-            if (viaExpShare) // at least one mon is getting exp via exp share
+            if (FlagGet(FLAG_SYS_ALL_EXP_SHARE))
             {
-                *exp = SAFE_DIV(calculatedExp / 2, viaSentIn);
-                if (*exp == 0)
-                    *exp = 1;
+                // Split total EXP evenly among all living, non-egg party mons.
+                viaSentIn = 0;
+                gBattleStruct->sentInPokes = 0;
+                for (i = 0; i < PARTY_SIZE; i++)
+                {
+                    if (GetMonData(&gPlayerParty[i], MON_DATA_SPECIES) == SPECIES_NONE
+                     || GetMonData(&gPlayerParty[i], MON_DATA_HP) == 0
+                     || GetMonData(&gPlayerParty[i], MON_DATA_IS_EGG))
+                        continue;
+                    viaSentIn++;
+                    gBattleStruct->sentInPokes |= gBitTable[i];
+                }
 
-                gExpShareExp = calculatedExp / 2 / viaExpShare;
-                if (gExpShareExp == 0)
-                    gExpShareExp = 1;
-            }
-            else
-            {
                 *exp = SAFE_DIV(calculatedExp, viaSentIn);
                 if (*exp == 0)
                     *exp = 1;
                 gExpShareExp = 0;
             }
+            else
+            {
+                for (viaSentIn = 0, i = 0; i < PARTY_SIZE; i++)
+                {
+                    if (GetMonData(&gPlayerParty[i], MON_DATA_SPECIES) == SPECIES_NONE || GetMonData(&gPlayerParty[i], MON_DATA_HP) == 0)
+                        continue;
+                    if (gBitTable[i] & sentIn)
+                        viaSentIn++;
+
+                    item = GetMonData(&gPlayerParty[i], MON_DATA_HELD_ITEM);
+
+                    if (item == ITEM_ENIGMA_BERRY)
+                        holdEffect = gSaveBlock1Ptr->enigmaBerry.holdEffect;
+                    else
+                        holdEffect = ItemId_GetHoldEffect(item);
+
+                    if (holdEffect == HOLD_EFFECT_EXP_SHARE)
+                        viaExpShare++;
+                }
+
+                if (viaExpShare) // at least one mon is getting exp via exp share
+                {
+                    *exp = SAFE_DIV(calculatedExp / 2, viaSentIn);
+                    if (*exp == 0)
+                        *exp = 1;
+
+                    gExpShareExp = calculatedExp / 2 / viaExpShare;
+                    if (gExpShareExp == 0)
+                        gExpShareExp = 1;
+                }
+                else
+                {
+                    *exp = SAFE_DIV(calculatedExp, viaSentIn);
+                    if (*exp == 0)
+                        *exp = 1;
+                    gExpShareExp = 0;
+                }
+
+                gBattleStruct->sentInPokes = sentIn;
+            }
 
             gBattleScripting.getexpState++;
             gBattleStruct->expGetterMonId = 0;
-            gBattleStruct->sentInPokes = sentIn;
         }
         // fall through
     case 2: // set exp value to the poke in expgetter_id and print message
@@ -3198,11 +3223,19 @@ static void Cmd_getexp(void)
             else
                 holdEffect = ItemId_GetHoldEffect(item);
 
-            if (holdEffect != HOLD_EFFECT_EXP_SHARE && !(gBattleStruct->sentInPokes & 1))
+            if (!FlagGet(FLAG_SYS_ALL_EXP_SHARE)
+             && holdEffect != HOLD_EFFECT_EXP_SHARE
+             && !(gBattleStruct->sentInPokes & 1))
             {
                 *(&gBattleStruct->sentInPokes) >>= 1;
                 gBattleScripting.getexpState = 5;
                 gBattleMoveDamage = 0; // used for exp
+            }
+            else if (FlagGet(FLAG_SYS_ALL_EXP_SHARE) && !(gBattleStruct->sentInPokes & 1))
+            {
+                *(&gBattleStruct->sentInPokes) >>= 1;
+                gBattleScripting.getexpState = 5;
+                gBattleMoveDamage = 0;
             }
             else if (GetMonData(&gPlayerParty[gBattleStruct->expGetterMonId], MON_DATA_LEVEL) == MAX_LEVEL)
             {
@@ -3220,14 +3253,15 @@ static void Cmd_getexp(void)
                     gBattleStruct->wildVictorySong++;
                 }
 
-                if (GetMonData(&gPlayerParty[gBattleStruct->expGetterMonId], MON_DATA_HP))
+                if (GetMonData(&gPlayerParty[gBattleStruct->expGetterMonId], MON_DATA_HP)
+                 && !GetMonData(&gPlayerParty[gBattleStruct->expGetterMonId], MON_DATA_IS_EGG))
                 {
                     if (gBattleStruct->sentInPokes & 1)
                         gBattleMoveDamage = *exp;
                     else
                         gBattleMoveDamage = 0;
 
-                    if (holdEffect == HOLD_EFFECT_EXP_SHARE)
+                    if (!FlagGet(FLAG_SYS_ALL_EXP_SHARE) && holdEffect == HOLD_EFFECT_EXP_SHARE)
                         gBattleMoveDamage += gExpShareExp;
                     if (holdEffect == HOLD_EFFECT_LUCKY_EGG)
                         gBattleMoveDamage = (gBattleMoveDamage * 150) / 100;
@@ -3309,6 +3343,7 @@ static void Cmd_getexp(void)
 
                 BattleScriptPushCursor();
                 gLeveledUpInBattle |= gBitTable[gBattleStruct->expGetterMonId];
+                EnqueueRandomLevelEvolution(gBattleStruct->expGetterMonId);
                 gBattlescriptCurrInstr = BattleScript_LevelUp;
                 gBattleMoveDamage = (gBattleBufferB[gActiveBattler][2] | (gBattleBufferB[gActiveBattler][3] << 8));
                 AdjustFriendship(&gPlayerParty[gBattleStruct->expGetterMonId], FRIENDSHIP_EVENT_GROW_LEVEL);
@@ -5101,42 +5136,10 @@ static void Cmd_returntoball(void)
 
 static void Cmd_handlelearnnewmove(void)
 {
-    const u8 *learnedMovePtr = T1_READ_PTR(gBattlescriptCurrInstr + 1);
     const u8 *nothingToLearnPtr = T1_READ_PTR(gBattlescriptCurrInstr + 5);
 
-    u16 learnMove = MonTryLearningNewMove(&gPlayerParty[gBattleStruct->expGetterMonId], gBattlescriptCurrInstr[9]);
-    while (learnMove == MON_ALREADY_KNOWS_MOVE)
-        learnMove = MonTryLearningNewMove(&gPlayerParty[gBattleStruct->expGetterMonId], FALSE);
-
-    if (learnMove == MOVE_NONE)
-    {
-        gBattlescriptCurrInstr = nothingToLearnPtr;
-    }
-    else if (learnMove == MON_HAS_MAX_MOVES)
-    {
-        gBattlescriptCurrInstr += 10;
-    }
-    else
-    {
-        gActiveBattler = GetBattlerAtPosition(B_POSITION_PLAYER_LEFT);
-
-        if (gBattlerPartyIndexes[gActiveBattler] == gBattleStruct->expGetterMonId
-            && !(gBattleMons[gActiveBattler].status2 & STATUS2_TRANSFORMED))
-        {
-            GiveMoveToBattleMon(&gBattleMons[gActiveBattler], learnMove);
-        }
-        if (gBattleTypeFlags & BATTLE_TYPE_DOUBLE)
-        {
-            gActiveBattler = GetBattlerAtPosition(B_POSITION_PLAYER_RIGHT);
-            if (gBattlerPartyIndexes[gActiveBattler] == gBattleStruct->expGetterMonId
-                && !(gBattleMons[gActiveBattler].status2 & STATUS2_TRANSFORMED))
-            {
-                GiveMoveToBattleMon(&gBattleMons[gActiveBattler], learnMove);
-            }
-        }
-
-        gBattlescriptCurrInstr = learnedMovePtr;
-    }
+    // Random level evolutions teach a move after the evolution scene instead.
+    gBattlescriptCurrInstr = nothingToLearnPtr;
 }
 
 static void Cmd_yesnoboxlearnmove(void)
@@ -9478,6 +9481,13 @@ static void Cmd_handleballthrow(void)
     }
     else if (gBattleTypeFlags & BATTLE_TYPE_TRAINER)
     {
+        BtlController_EmitBallThrowAnim(BUFFER_A, BALL_TRAINER_BLOCK);
+        MarkBattlerForControllerExec(gActiveBattler);
+        gBattlescriptCurrInstr = BattleScript_TrainerBallBlock;
+    }
+    else if (!Nuzlocke_CanThrowBall())
+    {
+        // Should already be blocked from the bag; fail-safe if a ball is forced somehow.
         BtlController_EmitBallThrowAnim(BUFFER_A, BALL_TRAINER_BLOCK);
         MarkBattlerForControllerExec(gActiveBattler);
         gBattlescriptCurrInstr = BattleScript_TrainerBallBlock;

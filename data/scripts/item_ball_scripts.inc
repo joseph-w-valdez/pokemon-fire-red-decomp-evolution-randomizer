@@ -616,6 +616,7 @@ FourIsland_IcefallCave_1F_EventScript_ItemUltraBall::
 
 FourIsland_IcefallCave_1F_EventScript_ItemHM07::
 	finditem ITEM_HM07
+	giveitem_msg FourIsland_IcefallCave_1F_Text_FoundFishLadder, ITEM_FISH_LADDER, 1, MUS_OBTAIN_KEY_ITEM
 	end
 
 FourIsland_IcefallCave_B1F_EventScript_ItemFullRestore::

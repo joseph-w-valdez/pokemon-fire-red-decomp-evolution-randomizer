@@ -18,11 +18,13 @@
 #include "pokemon_storage_system.h"
 #include "roamer.h"
 #include "item.h"
+#include "constants/items.h"
 #include "player_pc.h"
 #include "berry.h"
 #include "easy_chat.h"
 #include "union_room_chat.h"
 #include "mystery_gift.h"
+#include "nuzlocke.h"
 #include "renewable_hidden_items.h"
 #include "trainer_tower.h"
 #include "script.h"
@@ -124,6 +126,9 @@ void NewGameInitData(void)
     PlayTimeCounter_Reset();
     ClearPokedexFlags();
     InitEventData();
+    // Must run after InitEventData (which clears all flags). Choice is stored in
+    // SaveBlock2 filler_90 so it survives the unkFlag2 wipe above.
+    Nuzlocke_ApplyIntroChoice();
     ResetFameChecker();
     SetMoney(&gSaveBlock1Ptr->money, 3000);
     ResetGameStats();
@@ -137,6 +142,7 @@ void NewGameInitData(void)
     ClearRoamerData();
     gSaveBlock1Ptr->registeredItem = 0;
     ClearBag();
+	AddBagItem(ITEM_TEACHY_TV, 1);
     NewGameInitPCItems();
     ClearEnigmaBerries();
     InitEasyChatPhrases();
@@ -149,6 +155,8 @@ void NewGameInitData(void)
     RunScriptImmediately(EventScript_ResetAllMapFlags);
     StringCopy(gSaveBlock1Ptr->rivalName, rivalName);
     ResetTrainerTowerResults();
+    gSaveBlock1Ptr->follower.inProgress = FALSE;
+    gSaveBlock1Ptr->follower.objId = OBJECT_EVENTS_COUNT;
 }
 
 static void ResetMiniGamesResults(void)

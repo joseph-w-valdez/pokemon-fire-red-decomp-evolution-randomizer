@@ -42,11 +42,19 @@ FuchsiaCity_WardensHouse_Text_ReceivedHM04FromWarden::
     .string "{PLAYER} received HM04\n"
     .string "from the WARDEN.$"
 
+FuchsiaCity_WardensHouse_Text_AlsoTakeAnchorArms::
+    .string "WARDEN: Take these ANCHOR ARMS,\n"
+    .string "too!$"
+
+FuchsiaCity_WardensHouse_Text_ReceivedAnchorArmsFromWarden::
+    .string "{PLAYER} received the ANCHOR ARMS\n"
+    .string "from the WARDEN.$"
+
 FuchsiaCity_WardensHouse_Text_ExplainStrength::
-    .string "WARDEN: Inside HM04 you'll find\n"
-    .string "STRENGTH.\p"
-    .string "It lets POKéMON move boulders when\n"
-    .string "you're outside of battle.\p"
+    .string "WARDEN: With the right BADGE,\n"
+    .string "use those ANCHOR ARMS!\p"
+    .string "They let you shove boulders\n"
+    .string "around outside of battle.\p"
     .string "Oh yes, did you find the SECRET\n"
     .string "HOUSE in the SAFARI ZONE?$"
 

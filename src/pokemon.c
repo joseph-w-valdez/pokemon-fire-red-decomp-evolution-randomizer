@@ -9,6 +9,7 @@
 #include "battle_anim.h"
 #include "item.h"
 #include "event_data.h"
+#include "nuzlocke.h"
 #include "util.h"
 #include "pokemon_storage_system.h"
 #include "battle_gfx_sfx_util.h"
@@ -36,6 +37,7 @@
 #include "constants/hold_effects.h"
 #include "constants/battle_move_effects.h"
 #include "constants/union_room.h"
+#include "constants/daycare.h"
 
 #define SPECIES_TO_HOENN(name)      [SPECIES_##name - 1] = HOENN_DEX_##name
 #define SPECIES_TO_NATIONAL(name)   [SPECIES_##name - 1] = NATIONAL_DEX_##name
@@ -1395,6 +1397,8 @@ static const s8 sNatureStatTable[NUM_NATURES][NUM_NATURE_STATS] =
 #include "data/pokemon/evolution.h"
 #include "data/pokemon/level_up_learnset_pointers.h"
 
+extern const u16 gEggMoves[];
+
 static const s8 sPokeblockFlavorCompatibilityTable[NUM_NATURES * FLAVOR_COUNT] =
 {
     // Cool, Beauty, Cute, Smart, Tough
@@ -2157,10 +2161,10 @@ void CalculateMonStats(struct Pokemon *mon)
         else if (currentHP != 0) {
             // BUG: currentHP is unintentionally able to become <= 0 after the instruction below.
             currentHP += newMaxHP - oldMaxHP;
-            #ifdef BUGFIX
             if (currentHP <= 0)
                 currentHP = 1;
-            #endif
+            else if (currentHP > newMaxHP)
+                currentHP = newMaxHP;
         }
         else
             return;
@@ -4069,6 +4073,12 @@ bool8 PokemonUseItemEffects(struct Pokemon *mon, u16 item, u8 partyIndex, u8 mov
         itemEffect = gItemEffectTable[item - ITEM_POTION];
     }
 
+    // Nuzlocke: never revive fainted Pokémon (Revive, Max Revive, Sacred Ash, etc.).
+    if (IsNuzlockeActive()
+     && GetMonData(mon, MON_DATA_HP, NULL) == 0
+     && (itemEffect[4] & ITEM4_REVIVE))
+        return TRUE;
+
     // Do item effect
     for (cmdIndex = 0; cmdIndex < ITEM_EFFECT_ARG_START; cmdIndex++)
     {
@@ -4406,7 +4416,7 @@ bool8 PokemonUseItemEffects(struct Pokemon *mon, u16 item, u8 partyIndex, u8 mov
 
                             if (targetSpecies != SPECIES_NONE)
                             {
-                                BeginEvolutionScene(mon, targetSpecies, FALSE, partyIndex);
+                                BeginRandomLevelEvolutionScene(mon, FALSE, partyIndex);
                                 return FALSE;
                             }
                         }
@@ -5685,6 +5695,27 @@ void PartySpreadPokerus(struct Pokemon *party)
     &foo;
 }
 
+// Always infect the lead party Pokémon with an active strain.
+void InfectFirstPartyMonWithPokerus(void)
+{
+    u16 species = GetMonData(&gPlayerParty[0], MON_DATA_SPECIES_OR_EGG, NULL);
+    u8 pokerus;
+
+    if (species == SPECIES_NONE || species == SPECIES_EGG)
+        return;
+
+    // Strain 0xF, 4 days remaining (active). Decay is stubbed in FRLG, so it stays.
+    pokerus = 0xF4;
+    SetMonData(&gPlayerParty[0], MON_DATA_POKERUS, &pokerus);
+}
+
+u16 GetShinyOdds(void)
+{
+    if (CheckBagHasItem(ITEM_SHINY_CHARM, 1))
+        return SHINY_ODDS_WITH_CHARM;
+    return SHINY_ODDS;
+}
+
 static void SetMonExpWithMaxLevelCheck(struct Pokemon *mon, int species, u8 unused, u32 data)
 {
     if (data > gExperienceTables[gSpeciesInfo[species].growthRate][MAX_LEVEL])
@@ -5786,6 +5817,226 @@ u8 GetLevelUpMovesBySpecies(u16 species, u16 *moves)
          moves[numMoves++] = gLevelUpLearnsets[species][i] & LEVEL_UP_MOVE_ID;
 
      return numMoves;
+}
+
+#define NUM_VALID_RANDOM_SPECIES 386
+
+// Maps 0..385 onto real species IDs, skipping Old Unown placeholders 252-276.
+static u16 MapRandomIndexToSpecies(u16 index)
+{
+    if (index < SPECIES_CELEBI)
+        return index + 1;
+    return index + (SPECIES_TREECKO - SPECIES_CELEBI);
+}
+
+u16 GetRandomValidSpecies(u16 excludeSpecies)
+{
+    u16 index;
+    u16 species;
+
+    do
+    {
+        do
+        {
+            index = Random();
+        } while (index >= 0x10000 - (0x10000 % NUM_VALID_RANDOM_SPECIES));
+
+        species = MapRandomIndexToSpecies(index % NUM_VALID_RANDOM_SPECIES);
+    } while (species == excludeSpecies);
+
+    return species;
+}
+
+u16 GetRandomLevelUpMove(struct Pokemon *mon, u16 species)
+{
+    u16 learnset[MAX_LEVEL_UP_MOVES];
+    u16 eggMoves[EGG_MOVES_ARRAY_COUNT];
+    u16 candidates[MAX_LEVEL_UP_MOVES + EGG_MOVES_ARRAY_COUNT + NUM_TECHNICAL_MACHINES + NUM_HIDDEN_MACHINES];
+    u16 knownMoves[MAX_MON_MOVES];
+    u8 numLearnsetMoves;
+    u8 numEggMoves = 0;
+    u8 numCandidates = 0;
+    u8 j;
+    u16 i;
+    u16 index;
+    u16 eggMoveIdx = 0;
+    u16 move;
+
+    numLearnsetMoves = GetLevelUpMovesBySpecies(species, learnset);
+    for (i = 0; i < MAX_MON_MOVES; i++)
+        knownMoves[i] = GetMonData(mon, MON_DATA_MOVE1 + i, NULL);
+
+    for (i = 0; gEggMoves[i] != EGG_MOVES_TERMINATOR; i++)
+    {
+        if (gEggMoves[i] == species + EGG_MOVES_SPECIES_OFFSET)
+        {
+            eggMoveIdx = i + 1;
+            break;
+        }
+    }
+    for (i = 0; i < EGG_MOVES_ARRAY_COUNT; i++)
+    {
+        if (gEggMoves[eggMoveIdx + i] > EGG_MOVES_SPECIES_OFFSET)
+            break;
+        eggMoves[i] = gEggMoves[eggMoveIdx + i];
+        numEggMoves++;
+    }
+
+    for (i = 0; i < numLearnsetMoves; i++)
+    {
+        move = learnset[i];
+        if (move == MOVE_NONE)
+            continue;
+        for (j = 0; j < MAX_MON_MOVES; j++)
+        {
+            if (move == knownMoves[j])
+                break;
+        }
+        if (j < MAX_MON_MOVES)
+            continue;
+        for (j = 0; j < numCandidates; j++)
+        {
+            if (move == candidates[j])
+                break;
+        }
+        if (j < numCandidates)
+            continue;
+        candidates[numCandidates++] = move;
+    }
+
+    for (i = 0; i < numEggMoves; i++)
+    {
+        move = eggMoves[i];
+        if (move == MOVE_NONE)
+            continue;
+        for (j = 0; j < MAX_MON_MOVES; j++)
+        {
+            if (move == knownMoves[j])
+                break;
+        }
+        if (j < MAX_MON_MOVES)
+            continue;
+        for (j = 0; j < numCandidates; j++)
+        {
+            if (move == candidates[j])
+                break;
+        }
+        if (j < numCandidates)
+            continue;
+        candidates[numCandidates++] = move;
+    }
+
+    for (i = 0; i < NUM_TECHNICAL_MACHINES + NUM_HIDDEN_MACHINES; i++)
+    {
+        u32 learnMask;
+
+        if (i < 32)
+            learnMask = sTMHMLearnsets[species][0] & (1 << i);
+        else
+            learnMask = sTMHMLearnsets[species][1] & (1 << (i - 32));
+        if (!learnMask)
+            continue;
+
+        move = ItemIdToBattleMoveId(ITEM_TM01 + i);
+        if (move == MOVE_NONE)
+            continue;
+        for (j = 0; j < MAX_MON_MOVES; j++)
+        {
+            if (move == knownMoves[j])
+                break;
+        }
+        if (j < MAX_MON_MOVES)
+            continue;
+        for (j = 0; j < numCandidates; j++)
+        {
+            if (move == candidates[j])
+                break;
+        }
+        if (j < numCandidates)
+            continue;
+        candidates[numCandidates++] = move;
+    }
+
+    if (numCandidates == 0)
+        return MOVE_NONE;
+
+    do
+    {
+        index = Random();
+    } while (index >= 0x10000 - (0x10000 % numCandidates));
+
+    return candidates[index % numCandidates];
+}
+
+void SetMonSpeciesPreserveLevel(struct Pokemon *mon, u16 newSpecies)
+{
+    u16 oldSpecies = GetMonData(mon, MON_DATA_SPECIES, NULL);
+    u8 level = GetMonData(mon, MON_DATA_LEVEL, NULL);
+    u32 oldExp = GetMonData(mon, MON_DATA_EXP, NULL);
+    u8 oldGrowth = gSpeciesInfo[oldSpecies].growthRate;
+    u8 newGrowth = gSpeciesInfo[newSpecies].growthRate;
+    u32 oldLevelStart = gExperienceTables[oldGrowth][level];
+    u32 newLevelStart = gExperienceTables[newGrowth][level];
+    u16 oldMaxHP = GetMonData(mon, MON_DATA_MAX_HP, NULL);
+    u16 oldHP = GetMonData(mon, MON_DATA_HP, NULL);
+    u32 newExp;
+    u32 personality;
+    u8 abilityNum;
+    u16 newMaxHP;
+    u16 newHP;
+
+    if (level >= MAX_LEVEL)
+    {
+        newExp = newLevelStart;
+    }
+    else if (oldExp <= oldLevelStart)
+    {
+        newExp = newLevelStart;
+    }
+    else
+    {
+        u32 oldLevelEnd = gExperienceTables[oldGrowth][level + 1];
+        u32 newLevelEnd = gExperienceTables[newGrowth][level + 1];
+        u32 oldSpan = oldLevelEnd - oldLevelStart;
+        u32 newSpan = newLevelEnd - newLevelStart;
+
+        if (oldSpan == 0)
+            newExp = newLevelStart;
+        else
+            newExp = newLevelStart + ((oldExp - oldLevelStart) * newSpan) / oldSpan;
+    }
+
+    SetMonData(mon, MON_DATA_SPECIES, &newSpecies);
+    SetMonData(mon, MON_DATA_EXP, &newExp);
+
+    personality = GetMonData(mon, MON_DATA_PERSONALITY, NULL);
+    abilityNum = 0;
+    if (gSpeciesInfo[newSpecies].abilities[1] != ABILITY_NONE)
+        abilityNum = personality & 1;
+    SetMonData(mon, MON_DATA_ABILITY_NUM, &abilityNum);
+
+    CalculateMonStats(mon);
+
+    // Random evolutions can change base HP drastically. Recalculate current HP
+    // from the pre-evo ratio so it never ends up above max (shows as "?xx/yy").
+    newMaxHP = GetMonData(mon, MON_DATA_MAX_HP, NULL);
+    if (oldHP == 0)
+    {
+        newHP = 0;
+    }
+    else if (oldMaxHP == 0)
+    {
+        newHP = newMaxHP;
+    }
+    else
+    {
+        newHP = (u16)(((u32)oldHP * newMaxHP) / oldMaxHP);
+        if (newHP == 0)
+            newHP = 1;
+        if (newHP > newMaxHP)
+            newHP = newMaxHP;
+    }
+    SetMonData(mon, MON_DATA_HP, &newHP);
 }
 
 u8 GetNumberOfRelearnableMoves(struct Pokemon *mon)
@@ -5909,7 +6160,7 @@ const u32 *GetMonSpritePalFromSpeciesAndPersonality(u16 species, u32 otId, u32 p
         return gMonPaletteTable[0].data;
 
     shinyValue = GET_SHINY_VALUE(otId, personality);
-    if (shinyValue < SHINY_ODDS)
+    if (shinyValue < GetShinyOdds())
         return gMonShinyPaletteTable[species].data;
     else
         return gMonPaletteTable[species].data;
@@ -5928,7 +6179,7 @@ const struct CompressedSpritePalette *GetMonSpritePalStructFromOtIdPersonality(u
     u32 shinyValue;
 
     shinyValue = GET_SHINY_VALUE(otId, personality);
-    if (shinyValue < SHINY_ODDS)
+    if (shinyValue < GetShinyOdds())
         return &gMonShinyPaletteTable[species];
     else
         return &gMonPaletteTable[species];
@@ -5936,12 +6187,8 @@ const struct CompressedSpritePalette *GetMonSpritePalStructFromOtIdPersonality(u
 
 bool32 IsHMMove2(u16 move)
 {
-    int i = 0;
-    while (sHMMoves[i] != HM_MOVES_END)
-    {
-        if (sHMMoves[i++] == move)
-            return TRUE;
-    }
+    // Allow HM moves to be forgotten / overwritten like any other move.
+    (void)move;
     return FALSE;
 }
 
@@ -6063,7 +6310,7 @@ static bool8 IsShinyOtIdPersonality(u32 otId, u32 personality)
 {
     bool8 retVal = FALSE;
     u32 shinyValue = GET_SHINY_VALUE(otId, personality);
-    if (shinyValue < SHINY_ODDS)
+    if (shinyValue < GetShinyOdds())
         retVal = TRUE;
     return retVal;
 }

@@ -751,6 +751,7 @@ extern const u8 gOakSpeech_Text_WhatWasHisName[];
 extern const u8 gOakSpeech_Text_YourRivalsNameWhatWasIt[];
 extern const u8 gOakSpeech_Text_ConfirmRivalName[];
 extern const u8 gOakSpeech_Text_RememberRivalsName[];
+extern const u8 gOakSpeech_Text_AskNuzlocke[];
 extern const u8 gOakSpeech_Text_LetsGo[];
 
 // Help System
@@ -1231,6 +1232,7 @@ extern const u8 EventScript_Indigo_HighestAuthority[];
 extern const u8 EventScript_PokemartSign[];
 extern const u8 EventScript_PokecenterSign[];
 extern const u8 EventScript_CurrentTooFast[];
+extern const u8 EventScript_FollowerTalk[];
 extern const u8 EventScript_UseSurf[];
 extern const u8 EventScript_Waterfall[];
 extern const u8 EventScript_CantUseWaterfall[];

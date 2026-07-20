@@ -756,6 +756,31 @@ struct ExternalEventFlags
 
 } __attribute__((packed));/*size = 0x15*/
 
+// HGSS-style party Pokémon follower (Follow Me engine)
+struct FollowerMapData
+{
+    u8 id;
+    u8 number;
+    u8 group;
+};
+
+struct Follower
+{
+    u8 inProgress:1;
+    u8 warpEnd:1;
+    u8 createSurfBlob:3;
+    u8 comeOutDoorStairs:3;
+    u8 objId;
+    u8 currentSprite;
+    u8 delayedState;
+    struct FollowerMapData map;
+    struct Coords16 log;
+    const u8 *script;
+    u16 flag;
+    u16 graphicsId;
+    u16 flags;
+}; /* size = 0x18 */
+
 struct SaveBlock1
 {
     /*0x0000*/ struct Coords16 pos;
@@ -806,13 +831,15 @@ struct SaveBlock1
     /*0x30D0*/ struct Roamer roamer;
     /*0x30EC*/ struct EnigmaBerry enigmaBerry;
     /*0x3120*/ struct MysteryGiftSave mysteryGift;
-    /*0x348C*/ u8 unused_348C[400];
+    /*0x348C*/ u8 nuzlockeEncounters[32]; // bit per MAPSEC_* (MAPSEC_COUNT < 256)
+    /*0x34AC*/ u8 unused_348C[368];
     /*0x361C*/ struct RamScript ramScript;
     /*0x3A08*/ struct RecordMixingGift recordMixingGift; // unused
     /*0x3A18*/ u8 seen2[DEX_FLAGS_NO];
     /*0x3A4C*/ u8 rivalName[PLAYER_NAME_LENGTH + 1];
     /*0x3A54*/ struct FameCheckerSaveData fameChecker[NUM_FAMECHECKER_PERSONS];
-    /*0x3A94*/ u8 unused_3A94[64];
+    /*0x3A94*/ u8 unused_3A94[40];
+    /*0x3ABC*/ struct Follower follower;
     /*0x3AD4*/ u8 registeredTexts[UNION_ROOM_KB_ROW_COUNT][21];
     /*0x3BA8*/ struct TrainerNameRecord trainerNameRecords[20];
     /*0x3C98*/ struct DaycareMon route5DayCareMon;

@@ -23,6 +23,7 @@
 #include "constants/songs.h"
 #include "constants/event_object_movement.h"
 #include "constants/event_objects.h"
+#include "follow_me.h"
 #include "constants/field_weather.h"
 
 static void ExitWarpFadeInScreen(u8 playerNotMoving);
@@ -293,6 +294,7 @@ void FieldCB_DefaultWarpExit(void)
     Overworld_PlaySpecialMapMusic();
     QuestLog_DrawPreviouslyOnQuestHeaderIfInPlaybackMode();
     SetUpWarpExitTask(FALSE);
+    FollowMe_WarpSetEnd();
     LockPlayerFieldControls();
 }
 
@@ -333,6 +335,7 @@ static void Task_ExitDoor(u8 taskId)
         task->data[0] = 1;
         break;
     case 5:
+        HideFollower();
         SetPlayerVisibility(0);
         FreezeObjectEvents();
         DoOutwardBarnDoorWipe();
@@ -395,6 +398,8 @@ static void Task_ExitDoor(u8 taskId)
             task->data[0] = 4;
         break;
     case 4:
+        FollowMe_SetIndicatorToComeOutDoor();
+        FollowMe_WarpSetEnd();
         UnfreezeObjectEvents();
         UnlockPlayerFieldControls();
         DestroyTask(taskId);
@@ -748,6 +753,7 @@ static void Task_DoorWarp(u8 taskId)
     switch (task->data[0])
     {
     case 0:
+        HideFollower();
         FreezeObjectEvents();
         PlayerGetDestCoords(xp, yp);
         PlaySE(GetDoorSoundEffect(*xp, *yp - 1));

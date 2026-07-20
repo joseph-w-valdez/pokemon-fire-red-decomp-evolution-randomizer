@@ -7,6 +7,9 @@
 #include "task.h"
 #include "trig.h"
 
+// Run the battle curtain intro this many times per frame (~3x faster).
+#define BATTLE_INTRO_SLIDE_SPEED 3
+
 static EWRAM_DATA u16 sBgCnt = 0;
 
 extern const u8 gBattleAnimRegOffsBgCnt[];
@@ -16,19 +19,24 @@ static void BattleIntroSlide1(u8 taskId);
 static void BattleIntroSlide2(u8 taskId);
 static void BattleIntroSlide3(u8 taskId);
 static void BattleIntroSlideLink(u8 taskId);
+static void BattleIntroSlide1_Fast(u8 taskId);
+static void BattleIntroSlide2_Fast(u8 taskId);
+static void BattleIntroSlide3_Fast(u8 taskId);
+static void BattleIntroSlideLink_Fast(u8 taskId);
+static void RunIntroSlideFast(u8 taskId, TaskFunc slideFunc);
 
 static const TaskFunc sBattleIntroSlideFuncs[] =
 {
-    BattleIntroSlide1, // BATTLE_TERRAIN_GRASS
-    BattleIntroSlide1, // BATTLE_TERRAIN_LONG_GRASS
-    BattleIntroSlide2, // BATTLE_TERRAIN_SAND
-    BattleIntroSlide2, // BATTLE_TERRAIN_UNDERWATER
-    BattleIntroSlide2, // BATTLE_TERRAIN_WATER
-    BattleIntroSlide1, // BATTLE_TERRAIN_POND
-    BattleIntroSlide1, // BATTLE_TERRAIN_MOUNTAIN
-    BattleIntroSlide1, // BATTLE_TERRAIN_CAVE
-    BattleIntroSlide3, // BATTLE_TERRAIN_BUILDING
-    BattleIntroSlide3, // BATTLE_TERRAIN_PLAIN
+    BattleIntroSlide1_Fast, // BATTLE_TERRAIN_GRASS
+    BattleIntroSlide1_Fast, // BATTLE_TERRAIN_LONG_GRASS
+    BattleIntroSlide2_Fast, // BATTLE_TERRAIN_SAND
+    BattleIntroSlide2_Fast, // BATTLE_TERRAIN_UNDERWATER
+    BattleIntroSlide2_Fast, // BATTLE_TERRAIN_WATER
+    BattleIntroSlide1_Fast, // BATTLE_TERRAIN_POND
+    BattleIntroSlide1_Fast, // BATTLE_TERRAIN_MOUNTAIN
+    BattleIntroSlide1_Fast, // BATTLE_TERRAIN_CAVE
+    BattleIntroSlide3_Fast, // BATTLE_TERRAIN_BUILDING
+    BattleIntroSlide3_Fast, // BATTLE_TERRAIN_PLAIN
 };
 
 void SetAnimBgAttribute(u8 bgId, u8 attributeId, u8 value)
@@ -98,12 +106,12 @@ void HandleIntroSlide(u8 terrain)
 
     if (gBattleTypeFlags & BATTLE_TYPE_LINK)
     {
-        taskId = CreateTask(BattleIntroSlideLink, 0);
+        taskId = CreateTask(BattleIntroSlideLink_Fast, 0);
     }
     else if ((gBattleTypeFlags & BATTLE_TYPE_KYOGRE_GROUDON) && gGameVersion != VERSION_RUBY)
     {
         terrain = BATTLE_TERRAIN_UNDERWATER;
-        taskId = CreateTask(BattleIntroSlide2, 0);
+        taskId = CreateTask(BattleIntroSlide2_Fast, 0);
     }
     else
     {
@@ -116,6 +124,38 @@ void HandleIntroSlide(u8 terrain)
     gTasks[taskId].data[4] = 0;
     gTasks[taskId].data[5] = 0;
     gTasks[taskId].data[6] = 0;
+}
+
+static void RunIntroSlideFast(u8 taskId, TaskFunc slideFunc)
+{
+    u8 i;
+
+    for (i = 0; i < BATTLE_INTRO_SLIDE_SPEED; i++)
+    {
+        slideFunc(taskId);
+        if (!gTasks[taskId].isActive)
+            return;
+    }
+}
+
+static void BattleIntroSlide1_Fast(u8 taskId)
+{
+    RunIntroSlideFast(taskId, BattleIntroSlide1);
+}
+
+static void BattleIntroSlide2_Fast(u8 taskId)
+{
+    RunIntroSlideFast(taskId, BattleIntroSlide2);
+}
+
+static void BattleIntroSlide3_Fast(u8 taskId)
+{
+    RunIntroSlideFast(taskId, BattleIntroSlide3);
+}
+
+static void BattleIntroSlideLink_Fast(u8 taskId)
+{
+    RunIntroSlideFast(taskId, BattleIntroSlideLink);
 }
 
 void BattleIntroSlideEnd(u8 taskId)

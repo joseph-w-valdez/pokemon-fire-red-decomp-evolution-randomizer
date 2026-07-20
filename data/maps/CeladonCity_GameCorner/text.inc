@@ -32,6 +32,18 @@ CeladonCity_GameCorner_Text_RumoredTeamRocketRunsThisPlace::
     .string "It's rumored that this place is run\n"
     .string "by TEAM ROCKET.$"
 
+CeladonCity_GameCorner_Text_BaldingManGiveCoins::
+    .string "Me? Work here? Ha!\n"
+    .string "I'm just a regular guy!\p"
+    .string "Totally not on payroll.\n"
+    .string "Here, free COINS… wait.$"
+
+CeladonCity_GameCorner_Text_BaldingManGiveCoinsRepeat::
+    .string "Still just a customer!\n"
+    .string "Please keep playing!\p"
+    .string "The longer you stay, the…\n"
+    .string "uh… more fun you have! COINS!$"
+
 CeladonCity_GameCorner_Text_ThinkMachinesHaveDifferentOdds::
     .string "I think these machines have\n"
     .string "different odds.$"
@@ -42,6 +54,10 @@ CeladonCity_GameCorner_Text_DoYouWantToPlay::
 CeladonCity_GameCorner_Text_Received10CoinsFromMan::
     .string "{PLAYER} received 10 COINS\n"
     .string "from the man.$"
+
+CeladonCity_GameCorner_Text_Received9999Coins::
+    .string "{PLAYER}'s COIN CASE was\n"
+    .string "filled with COINS!$"
 
 CeladonCity_GameCorner_Text_DontNeedMyCoins::
     .string "You don't need my COINS!$"
@@ -75,6 +91,18 @@ CeladonCity_GameCorner_Text_SoEasyToGetHooked::
     .string "Games are scary!\n"
     .string "It's so easy to get hooked!$"
 
+CeladonCity_GameCorner_Text_OldManGiveCoins::
+    .string "I hate this place.\n"
+    .string "I'm done gambling for good!\p"
+    .string "Take these. I don't need\n"
+    .string "them anymore.$"
+
+CeladonCity_GameCorner_Text_OldManGiveCoinsRepeat::
+    .string "I'm giving it up…\n"
+    .string "Really. This time.\p"
+    .string "Here. Take these before\n"
+    .string "I change my mind again.$"
+
 CeladonCity_GameCorner_Text_WantSomeCoins::
     .string "What's up?\n"
     .string "Want some COINS?$"
@@ -93,6 +121,18 @@ CeladonCity_GameCorner_Text_NeedMoreCoinsForMonIWant::
 CeladonCity_GameCorner_Text_HereAreSomeCoinsShoo::
     .string "Hey, what? You're throwing me off!\n"
     .string "Here are some COINS, so shoo!$"
+
+CeladonCity_GameCorner_Text_GentlemanGiveCoins::
+    .string "Ha! Can't stop winning!\n"
+    .string "The house can't touch me!\p"
+    .string "I'm drowning in COINS.\n"
+    .string "Take a stack. I'm generous!$"
+
+CeladonCity_GameCorner_Text_GentlemanGiveCoinsRepeat::
+    .string "Still winning!\n"
+    .string "Told you I was unstoppable.\p"
+    .string "Here, more COINS.\n"
+    .string "Don't spend them all at once!$"
 
 CeladonCity_GameCorner_Text_Received20CoinsFromMan::
     .string "{PLAYER} received 20 COINS\n"

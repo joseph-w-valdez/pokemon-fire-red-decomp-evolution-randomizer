@@ -13,6 +13,7 @@
 #include "field_poison.h"
 #include "field_specials.h"
 #include "item_menu.h"
+#include "item.h"
 #include "link.h"
 #include "wonder_news.h"
 #include "metatile_behavior.h"
@@ -25,9 +26,12 @@
 #include "trainer_see.h"
 #include "vs_seeker.h"
 #include "wild_encounter.h"
+#include "constants/follow_me.h"
+#include "follow_me.h"
 #include "constants/songs.h"
 #include "constants/event_bg.h"
 #include "constants/event_objects.h"
+#include "constants/items.h"
 #include "constants/maps.h"
 #include "constants/metatile_behaviors.h"
 
@@ -453,7 +457,10 @@ static const u8 *GetInteractedObjectEventScript(struct MapPosition *position, u8
     gSpecialVar_LastTalked = gObjectEvents[objectEventId].localId;
     gSpecialVar_Facing = direction;
 
-    script = GetObjectEventScriptPointerByObjectEventId(objectEventId);
+    if (objectEventId == GetFollowerObjectId())
+        script = GetFollowerScriptPointer();
+    else
+        script = GetObjectEventScriptPointerByObjectEventId(objectEventId);
 
     script = GetRamScript(gSpecialVar_LastTalked, script);
     return script;
@@ -600,14 +607,19 @@ static const u8 *GetInteractedMetatileScript(struct MapPosition *position, u8 me
 
 static const u8 *GetInteractedWaterScript(struct MapPosition *unused1, u8 metatileBehavior, u8 direction)
 {
-    if (MetatileBehavior_IsFastWater(metatileBehavior) == TRUE && PartyHasMonWithSurf() == TRUE)
+    bool8 canSurfWithKeyItem = (FlagGet(FLAG_BADGE05_GET) == TRUE
+                             && CheckBagHasItem(ITEM_POOL_NOODLE, 1));
+
+    if (MetatileBehavior_IsFastWater(metatileBehavior) == TRUE && canSurfWithKeyItem)
         return EventScript_CurrentTooFast;
-    if (FlagGet(FLAG_BADGE05_GET) == TRUE && PartyHasMonWithSurf() == TRUE && IsPlayerFacingSurfableFishableWater() == TRUE)
+    if (canSurfWithKeyItem && IsPlayerFacingSurfableFishableWater() == TRUE && CheckFollowerFlag(FOLLOWER_FLAG_CAN_SURF))
         return EventScript_UseSurf;
 
-    if (MetatileBehavior_IsWaterfall(metatileBehavior) == TRUE)
+    if (MetatileBehavior_IsWaterfall(metatileBehavior) == TRUE && CheckFollowerFlag(FOLLOWER_FLAG_CAN_WATERFALL))
     {
-        if (FlagGet(FLAG_BADGE07_GET) == TRUE && IsPlayerSurfingNorth() == TRUE)
+        if (FlagGet(FLAG_BADGE07_GET) == TRUE
+         && CheckBagHasItem(ITEM_FISH_LADDER, 1)
+         && IsPlayerSurfingNorth() == TRUE)
             return EventScript_Waterfall;
         else
             return EventScript_CantUseWaterfall;
@@ -1140,7 +1152,7 @@ bool8 dive_warp(struct MapPosition *position, u16 metatileBehavior)
     return FALSE;
 }
 
-static u8 TrySetDiveWarp(void)
+u8 TrySetDiveWarp(void)
 {
     s16 x, y;
     u8 metatileBehavior;

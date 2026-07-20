@@ -169,6 +169,8 @@ extern const u8 gText_ReturnToPC[];
 extern const u8 gText_OakForbidsUseOfItemHere[];
 extern const u8 gText_CantDismountBike[];
 extern const u8 gText_CoinCase[];
+extern const u8 gText_AllExpShareOn[];
+extern const u8 gText_AllExpShareOff[];
 extern const u8 gText_PlayerUsedVar2[];
 extern const u8 gText_RepelEffectsLingered[];
 extern const u8 gText_UsedVar2WildLured[];
@@ -179,6 +181,7 @@ extern const u8 gText_PlayedPokeFluteCatchy[];
 extern const u8 gText_PlayedPokeFlute[];
 extern const u8 gText_PokeFluteAwakenedMon[];
 extern const u8 gText_WontHaveEffect[];
+extern const u8 gText_NuzlockeCantCatch[];
 extern const u8 gText_YesNo[];
 extern const u8 gText_Berry[];
 extern const u8 gText_Ghost[];
@@ -945,6 +948,7 @@ extern const u8 gText_PkmnIsEvolving[];
 extern const u8 gText_CongratsPkmnEvolved[];
 extern const u8 gText_EllipsisQuestionMark[];
 extern const u8 gText_PkmnStoppedEvolving[];
+extern const u8 gText_CannotRefuseLearningMove[];
 
 // shop
 extern const u8 gText_ShopBuy[];

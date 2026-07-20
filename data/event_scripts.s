@@ -1015,6 +1015,7 @@ EventScript_ResetAllMapFlags::
 	setflag FLAG_HIDE_OAK_IN_PALLET_TOWN
 	setflag FLAG_HIDE_BILL_HUMAN_SEA_COTTAGE
 	setflag FLAG_HIDE_PEWTER_CITY_RUNNING_SHOES_GUY
+	setflag FLAG_SYS_B_DASH
 	setflag FLAG_HIDE_POKEHOUSE_FUJI
 	setflag FLAG_HIDE_LIFT_KEY
 	setflag FLAG_HIDE_SILPH_SCOPE
@@ -1344,6 +1345,7 @@ Text_TestMsg::
 	.include "data/scripts/mystery_event_club.inc"
 	.include "data/scripts/day_care.inc"
 	.include "data/text/day_care.inc"
+	.include "data/scripts/follower.inc"
 	.include "data/scripts/flash.inc"
 	.include "data/scripts/repel.inc"
 	.include "data/scripts/safari_zone.inc"

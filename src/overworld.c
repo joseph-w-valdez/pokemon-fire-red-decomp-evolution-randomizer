@@ -30,6 +30,7 @@
 #include "money.h"
 #include "new_game.h"
 #include "new_menu_helpers.h"
+#include "nuzlocke.h"
 #include "overworld.h"
 #include "play_time.h"
 #include "quest_log.h"
@@ -47,6 +48,8 @@
 #include "trainer_pokemon_sprites.h"
 #include "vs_seeker.h"
 #include "wild_encounter.h"
+#include "follow_me.h"
+#include "event_object_lock.h"
 #include "constants/cable_club.h"
 #include "constants/event_objects.h"
 #include "constants/maps.h"
@@ -340,6 +343,7 @@ static void Overworld_ResetStateAfterWhitingOut(void)
     FlagClear(FLAG_SYS_FLASH_ACTIVE);
     FlagClear(FLAG_SYS_QL_DEPARTED);
     VarSet(VAR_QL_ENTRANCE, 0);
+    FollowMe_TryRemoveFollowerOnWhiteOut();
 }
 
 static void Overworld_ResetStateOnContinue(void)
@@ -947,10 +951,8 @@ static u16 GetCenterScreenMetatileBehavior(void)
 
 bool32 Overworld_IsBikingAllowed(void)
 {
-    if (!gMapHeader.bikingAllowed)
-        return FALSE;
-    else
-        return TRUE;
+    // Allow the bike indoors and on any map (still blocked while surfing/underwater).
+    return TRUE;
 }
 
 static void SetDefaultFlashLevel(void)
@@ -1415,6 +1417,9 @@ static void DoCB1_Overworld(u16 newKeys, u16 heldKeys)
         }
     }
     RunQuestLogCB();
+
+    if (PlayerHasFollower() && IsPlayerOnFoot() && walkrun_is_standing_still())
+        ObjectEventSetHeldMovement(&gObjectEvents[GetFollowerObjectId()], GetFaceDirectionMovementAction(gObjectEvents[GetFollowerObjectId()].facingDirection));
 }
 
 static void DoCB1_Overworld_QuestLogPlayback(void)
@@ -1951,6 +1956,8 @@ static bool32 ReturnToFieldLocal(u8 *state)
     case 2:
         InitViewGraphics();
         SetHelpContextForMap();
+        FollowMe_BindToSurbBlobOnReloadScreen();
+        UpdatePokemonFollower();
         (*state)++;
         break;
     case 3:
@@ -2146,6 +2153,8 @@ static void InitObjectEventsLocal(void)
     ResetInitialPlayerAvatarState();
     TrySpawnObjectEvents(0, 0);
     TryRunOnWarpIntoMapScript();
+    UpdatePokemonFollower();
+    FollowMe_HandleSprite();
 }
 
 static void ReloadObjectsAndRunReturnToFieldMapScript(void)

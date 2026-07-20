@@ -18,10 +18,14 @@ static void Task_FieldEffectShowMon_Init(u8 taskId);
 static void Task_FieldEffectShowMon_WaitFldeff(u8 taskId);
 static void Task_FieldEffectShowMon_WaitPlayerAnim(u8 taskId);
 static void Task_FieldEffectShowMon_Cleanup(u8 taskId);
+static void RestorePlayerGraphicsAfterFieldMove(u8 taskId);
 static void FieldCallback_UseRockSmash(void);
 static void StartRockSmashFieldEffect(void);
 
 EWRAM_DATA struct MapPosition gPlayerFacingPosition = {};
+
+// task->data[7]: if TRUE, skip Pokémon reveal (key-item field tools)
+#define tSkipShowMon data[7]
 
 bool8 CheckObjectGraphicsInFrontOfPlayer(u8 graphicsId)
 {
@@ -38,8 +42,38 @@ bool8 CheckObjectGraphicsInFrontOfPlayer(u8 graphicsId)
 
 u8 CreateFieldEffectShowMon(void)
 {
+    u8 taskId;
+
     GetXYCoordsOneStepInFrontOfPlayer(&gPlayerFacingPosition.x, &gPlayerFacingPosition.y);
-    return CreateTask(Task_FieldEffectShowMon_Init, 8);
+    taskId = CreateTask(Task_FieldEffectShowMon_Init, 8);
+    gTasks[taskId].tSkipShowMon = FALSE;
+    return taskId;
+}
+
+u8 CreateFieldEffectNoShowMon(void)
+{
+    u8 taskId;
+
+    GetXYCoordsOneStepInFrontOfPlayer(&gPlayerFacingPosition.x, &gPlayerFacingPosition.y);
+    taskId = CreateTask(Task_FieldEffectShowMon_Init, 8);
+    gTasks[taskId].tSkipShowMon = TRUE;
+    return taskId;
+}
+
+static void RestorePlayerGraphicsAfterFieldMove(u8 taskId)
+{
+    gFieldEffectArguments[1] = GetPlayerFacingDirection();
+    if (gFieldEffectArguments[1] == DIR_SOUTH)
+        gFieldEffectArguments[2] = 0;
+    if (gFieldEffectArguments[1] == DIR_NORTH)
+        gFieldEffectArguments[2] = 1;
+    if (gFieldEffectArguments[1] == DIR_WEST)
+        gFieldEffectArguments[2] = 2;
+    if (gFieldEffectArguments[1] == DIR_EAST)
+        gFieldEffectArguments[2] = 3;
+    ObjectEventSetGraphicsId(&gObjectEvents[gPlayerAvatar.objectEventId], GetPlayerAvatarGraphicsIdByCurrentState());
+    StartSpriteAnim(&gSprites[gPlayerAvatar.spriteId], gFieldEffectArguments[2]);
+    gTasks[taskId].func = Task_FieldEffectShowMon_Cleanup;
 }
 
 static void Task_FieldEffectShowMon_Init(u8 taskId)
@@ -54,9 +88,16 @@ static void Task_FieldEffectShowMon_Init(u8 taskId)
     {
         if (gMapHeader.mapType == MAP_TYPE_UNDERWATER)
         {
-            // Leftover from RS, inhibits the player anim while underwater.
-            FieldEffectStart(FLDEFF_FIELD_MOVE_SHOW_MON_INIT);
-            gTasks[taskId].func = Task_FieldEffectShowMon_WaitFldeff;
+            if (gTasks[taskId].tSkipShowMon)
+            {
+                RestorePlayerGraphicsAfterFieldMove(taskId);
+            }
+            else
+            {
+                // Leftover from RS, inhibits the player anim while underwater.
+                FieldEffectStart(FLDEFF_FIELD_MOVE_SHOW_MON_INIT);
+                gTasks[taskId].func = Task_FieldEffectShowMon_WaitFldeff;
+            }
         }
         else
         {
@@ -71,8 +112,15 @@ static void Task_FieldEffectShowMon_WaitPlayerAnim(u8 taskId)
 {
     if (ObjectEventCheckHeldMovementStatus(&gObjectEvents[gPlayerAvatar.objectEventId]) == TRUE)
     {
-        FieldEffectStart(FLDEFF_FIELD_MOVE_SHOW_MON_INIT);
-        gTasks[taskId].func = Task_FieldEffectShowMon_WaitFldeff;
+        if (gTasks[taskId].tSkipShowMon)
+        {
+            RestorePlayerGraphicsAfterFieldMove(taskId);
+        }
+        else
+        {
+            FieldEffectStart(FLDEFF_FIELD_MOVE_SHOW_MON_INIT);
+            gTasks[taskId].func = Task_FieldEffectShowMon_WaitFldeff;
+        }
     }
 }
 
@@ -80,19 +128,8 @@ static void Task_FieldEffectShowMon_WaitFldeff(u8 taskId)
 {
     if (!FieldEffectActiveListContains(FLDEFF_FIELD_MOVE_SHOW_MON))
     {
-        gFieldEffectArguments[1] = GetPlayerFacingDirection();
-        if (gFieldEffectArguments[1] == DIR_SOUTH)
-            gFieldEffectArguments[2] = 0;
-        if (gFieldEffectArguments[1] == DIR_NORTH)
-            gFieldEffectArguments[2] = 1;
-        if (gFieldEffectArguments[1] == DIR_WEST)
-            gFieldEffectArguments[2] = 2;
-        if (gFieldEffectArguments[1] == DIR_EAST)
-            gFieldEffectArguments[2] = 3;
-        ObjectEventSetGraphicsId(&gObjectEvents[gPlayerAvatar.objectEventId], GetPlayerAvatarGraphicsIdByCurrentState());
-        StartSpriteAnim(&gSprites[gPlayerAvatar.spriteId], gFieldEffectArguments[2]);
         FieldEffectActiveListRemove(FLDEFF_FIELD_MOVE_SHOW_MON);
-        gTasks[taskId].func = Task_FieldEffectShowMon_Cleanup;
+        RestorePlayerGraphicsAfterFieldMove(taskId);
     }
 }
 
@@ -122,7 +159,7 @@ static void FieldCallback_UseRockSmash(void)
 
 bool8 FldEff_UseRockSmash(void)
 {
-    u8 taskId = CreateFieldEffectShowMon();
+    u8 taskId = CreateFieldEffectNoShowMon();
 
     FLDEFF_SET_FUNC_TO_DATA(StartRockSmashFieldEffect);
     IncrementGameStat(GAME_STAT_USED_ROCK_SMASH);

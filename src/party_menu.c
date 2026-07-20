@@ -4285,8 +4285,6 @@ static void CB2_UseItem(void)
     {
         GiveMoveToMon(&gPlayerParty[gPartyMenu.slotId], ItemIdToBattleMoveId(gSpecialVar_ItemId));
         AdjustFriendship(&gPlayerParty[gPartyMenu.slotId], FRIENDSHIP_EVENT_LEARN_TMHM);
-        if (gSpecialVar_ItemId < ITEM_HM01)
-            RemoveBagItem(gSpecialVar_ItemId, 1);
         SetMainCallback2(gPartyMenu.exitCallback);
     }
     else
@@ -4305,8 +4303,6 @@ static void CB2_UseTMHMAfterForgettingMove(void)
         SetMonMoveSlot(mon, ItemIdToBattleMoveId(gSpecialVar_ItemId), moveIdx);
         AdjustFriendship(mon, FRIENDSHIP_EVENT_LEARN_TMHM);
         ItemUse_SetQuestLogEvent(QL_EVENT_USED_ITEM, mon, gSpecialVar_ItemId, move);
-        if (gSpecialVar_ItemId < ITEM_HM01)
-            RemoveBagItem(gSpecialVar_ItemId, 1);
         SetMainCallback2(gPartyMenu.exitCallback);
     }
     else
@@ -4723,11 +4719,8 @@ u16 ItemIdToBattleMoveId(u16 item)
 
 bool8 IsMoveHm(u16 move)
 {
-    u8 i;
-
-    for (i = 0; i < NUM_HIDDEN_MACHINES - 1; ++i) // no dive
-        if (sTMHMMoves[i + NUM_TECHNICAL_MACHINES] == move)
-            return TRUE;
+    // Allow HM moves to be forgotten / overwritten like any other move.
+    (void)move;
     return FALSE;
 }
 
@@ -4804,14 +4797,9 @@ static void Task_LearnedMove(u8 taskId)
 {
     struct Pokemon *mon = &gPlayerParty[gPartyMenu.slotId];
     s16 *data = gPartyMenu.data;
-    u16 item = gSpecialVar_ItemId;
 
     if (learnMoveMethod == LEARN_VIA_TMHM)
-    {
         AdjustFriendship(mon, FRIENDSHIP_EVENT_LEARN_TMHM);
-        if (item < ITEM_HM01)
-            RemoveBagItem(item, 1);
-    }
     GetMonNickname(mon, gStringVar1);
     StringCopy(gStringVar2, gMoveNames[learnMoveId]);
     StringExpandPlaceholders(gStringVar4, gText_PkmnLearnedMove3);
@@ -5118,28 +5106,11 @@ static void DisplayLevelUpStatsPg2(u8 taskId)
 
 static void Task_TryLearnNewMoves(u8 taskId)
 {
-    u16 learnMove;
-
+    // Random level evolutions teach a move after the evolution scene instead.
     if (WaitFanfare(FALSE) && (JOY_NEW(A_BUTTON) || JOY_NEW(B_BUTTON)))
     {
         RemoveLevelUpStatsWindow();
-        learnMove = MonTryLearningNewMove(&gPlayerParty[gPartyMenu.slotId], TRUE);
-        gPartyMenu.learnMoveMethod = LEARN_VIA_LEVEL_UP;
-        switch (learnMove)
-        {
-        case MOVE_NONE: // No moves to learn
-            PartyMenuTryEvolution(taskId);
-            break;
-        case MON_HAS_MAX_MOVES:
-            DisplayMonNeedsToReplaceMove(taskId);
-            break;
-        case MON_ALREADY_KNOWS_MOVE:
-            gTasks[taskId].func = Task_TryLearningNextMove;
-            break;
-        default:
-            DisplayMonLearnedMove(taskId, learnMove);
-            break;
-        }
+        PartyMenuTryEvolution(taskId);
     }
 }
 
@@ -5166,17 +5137,11 @@ static void Task_TryLearningNextMove(u8 taskId)
 static void PartyMenuTryEvolution(u8 taskId)
 {
     struct Pokemon *mon = &gPlayerParty[gPartyMenu.slotId];
-    u16 targetSpecies = GetEvolutionTargetSpecies(mon, EVO_MODE_NORMAL, ITEM_NONE);
 
-    if (targetSpecies != SPECIES_NONE)
-    {
-        FreePartyPointers();
-        gCB2_AfterEvolution = gPartyMenu.exitCallback;
-        BeginEvolutionScene(mon, targetSpecies, TRUE, gPartyMenu.slotId);
-        DestroyTask(taskId);
-    }
-    else
-        gTasks[taskId].func = Task_ClosePartyMenuAfterText;
+    FreePartyPointers();
+    gCB2_AfterEvolution = gPartyMenu.exitCallback;
+    BeginRandomLevelEvolutionScene(mon, FALSE, gPartyMenu.slotId);
+    DestroyTask(taskId);
 }
 
 static void DisplayMonNeedsToReplaceMove(u8 taskId)

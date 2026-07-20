@@ -1182,7 +1182,7 @@ static void OpponentHandleTrainerSlide(void)
 static void OpponentHandleTrainerSlideBack(void)
 {
     SetSpritePrimaryCoordsFromSecondaryCoords(&gSprites[gBattlerSpriteIds[gActiveBattler]]);
-    gSprites[gBattlerSpriteIds[gActiveBattler]].data[0] = 35;
+    gSprites[gBattlerSpriteIds[gActiveBattler]].data[0] = 12; // was 35; ~3x faster trainer slide-off
     gSprites[gBattlerSpriteIds[gActiveBattler]].data[2] = 280;
     gSprites[gBattlerSpriteIds[gActiveBattler]].data[4] = gSprites[gBattlerSpriteIds[gActiveBattler]].y;
     gSprites[gBattlerSpriteIds[gActiveBattler]].callback = StartAnimLinearTranslation;
@@ -1629,7 +1629,7 @@ static void OpponentHandleIntroTrainerBallThrow(void)
     u8 taskId;
 
     SetSpritePrimaryCoordsFromSecondaryCoords(&gSprites[gBattlerSpriteIds[gActiveBattler]]);
-    gSprites[gBattlerSpriteIds[gActiveBattler]].data[0] = 35;
+    gSprites[gBattlerSpriteIds[gActiveBattler]].data[0] = 12; // was 35; ~3x faster trainer slide-off
     gSprites[gBattlerSpriteIds[gActiveBattler]].data[2] = 280;
     gSprites[gBattlerSpriteIds[gActiveBattler]].data[4] = gSprites[gBattlerSpriteIds[gActiveBattler]].y;
     gSprites[gBattlerSpriteIds[gActiveBattler]].callback = StartAnimLinearTranslation;

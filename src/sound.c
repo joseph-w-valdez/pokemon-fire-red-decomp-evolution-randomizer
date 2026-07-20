@@ -496,6 +496,10 @@ void PlayCryInternal(u16 species, s8 pan, s8 volume, u8 priority, u8 mode)
         break;
     }
 
+    // Battle cries play ~3x faster so intro/send-out waits finish sooner.
+    if (gMain.inBattle && gMPlay_PokemonCry != NULL)
+        m4aMPlayTempoControl(gMPlay_PokemonCry, 256 * 3);
+
     #undef GET_CRY
 }
 

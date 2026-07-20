@@ -398,6 +398,16 @@ static const u32 *const sItemIconTable[ITEMS_COUNT + 1][2] =
     [ITEM_POWDER_JAR]     = {gItemIcon_PowderJar, gItemIconPalette_PowderJar},
     [ITEM_RUBY]           = {gItemIcon_Gem, gItemIconPalette_Ruby},
     [ITEM_SAPPHIRE]       = {gItemIcon_Gem, gItemIconPalette_Sapphire},
+    [ITEM_WAYMO]          = {gItemIcon_TownMap, gItemIconPalette_TownMap},
+    [ITEM_EDGELORD]       = {gItemIcon_EscapeRope, gItemIconPalette_EscapeRope},
+    [ITEM_POOL_NOODLE]    = {gItemIcon_OldRod, gItemIconPalette_OldRod},
+    [ITEM_ANCHOR_ARMS]    = {gItemIcon_MachBike, gItemIconPalette_MachBike},
+    [ITEM_GEOCIDE]        = {gItemIcon_HardStone, gItemIconPalette_HardStone},
+    [ITEM_FISH_LADDER]    = {gItemIcon_SuperRod, gItemIconPalette_SuperRod},
+    [ITEM_TITAN]          = {gItemIcon_DiveBall, gItemIconPalette_DiveBall},
+    [ITEM_RING_LIGHT]     = {gItemIcon_Repel, gItemIconPalette_MaxRepel},
+    [ITEM_ALL_EXP_SHARE]  = {gItemIcon_ExpShare, gItemIconPalette_ExpShare},
+    [ITEM_SHINY_CHARM]    = {gItemIcon_AmuletCoin, gItemIconPalette_AmuletCoin},
     // Return to field arrow
     [ITEMS_COUNT]         = {gItemIcon_ReturnToFieldArrow, gItemIconPalette_ReturnToFieldArrow},
 };

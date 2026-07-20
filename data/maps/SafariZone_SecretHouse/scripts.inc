@@ -9,6 +9,8 @@ SafariZone_SecretHouse_EventScript_Attendant::
 	checkitemspace ITEM_HM03
 	goto_if_eq VAR_RESULT, FALSE, SafariZone_SecretHouse_EventScript_NoRoomForHM03
 	giveitem_msg SafariZone_SecretHouse_Text_ReceivedHM03FromAttendant, ITEM_HM03
+	msgbox SafariZone_SecretHouse_Text_AlsoTakePoolNoodle
+	giveitem_msg SafariZone_SecretHouse_Text_ReceivedPoolNoodleFromAttendant, ITEM_POOL_NOODLE, 1, MUS_OBTAIN_KEY_ITEM
 	msgbox SafariZone_SecretHouse_Text_ExplainSurf
 	setflag FLAG_GOT_HM03
 	release

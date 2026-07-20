@@ -20,6 +20,7 @@
 #include "script.h"
 #include "strings.h"
 #include "wild_encounter.h"
+#include "follow_me.h"
 #include "constants/event_object_movement.h"
 #include "constants/event_objects.h"
 #include "constants/songs.h"
@@ -508,8 +509,8 @@ static void PlayerNotOnBikeMoving(u8 direction, u16 heldKeys)
 
     if (gPlayerAvatar.flags & PLAYER_AVATAR_FLAG_SURFING)
     {
-        // Same speed as running
-        PlayerWalkFast(direction);
+        // Match buffed bike speed (8× original walk).
+        PlayerWalkFastest(direction);
         return;
     }
 
@@ -680,6 +681,7 @@ void SetPlayerAvatarTransitionFlags(u16 flags)
 {
     gPlayerAvatar.transitionFlags |= flags;
     DoPlayerAvatarTransition();
+    FollowMe_HandleBike();
 }
 
 static void (*const sPlayerAvatarTransitionFuncs[])(struct ObjectEvent *) = {
@@ -842,7 +844,8 @@ void PlayerWalkSlow(u8 direction)
 
 void PlayerWalkNormal(u8 direction)
 {
-    PlayerSetAnimId(GetWalkNormalMovementAction(direction), 2);
+    // Use the old running speed (2 pixels/frame) for normal walking.
+    PlayerSetAnimId(GetWalkFastMovementAction(direction), 2);
 }
 
 void PlayerWalkFast(u8 direction)
@@ -863,6 +866,12 @@ void PlayerRideWaterCurrent(u8 direction)
 void PlayerWalkFaster(u8 direction)
 {
     PlayerSetAnimId(GetWalkFasterMovementAction(direction), 2);
+}
+
+void PlayerWalkFastest(u8 direction)
+{
+    // 8 pixels/frame — twice running speed. Reuses slide step/anim tables.
+    PlayerSetAnimId(GetSlideMovementAction(direction), 2);
 }
 
 void PlayerRun(u8 direction)
@@ -1313,6 +1322,7 @@ void InitPlayerAvatar(s16 x, s16 y, u8 direction, u8 gender)
     gPlayerAvatar.spriteId = objectEvent->spriteId;
     gPlayerAvatar.gender = gender;
     SetPlayerAvatarStateMask(PLAYER_AVATAR_FLAG_CONTROLLABLE | PLAYER_AVATAR_FLAG_ON_FOOT);
+    UpdatePokemonFollower();
 }
 
 void SetPlayerInvisibility(bool8 invisible)

@@ -224,6 +224,52 @@ COMMON_DATA void (*gPreBattleCallback1)(void) = NULL;
 COMMON_DATA void (*gBattleMainFunc)(void) = NULL;
 COMMON_DATA struct BattleResults gBattleResults = {0};
 COMMON_DATA u8 gLeveledUpInBattle = 0;
+
+#define RANDOM_LEVEL_EVO_QUEUE_SIZE 64
+
+static EWRAM_DATA u8 sRandomLevelEvoQueue[RANDOM_LEVEL_EVO_QUEUE_SIZE] = {0};
+static EWRAM_DATA u8 sRandomLevelEvoQueueCount = 0;
+static EWRAM_DATA u8 sRandomLevelEvoQueueRead = 0;
+static EWRAM_DATA u8 sRandomLevelEvoQueuedBits = 0; // one evolution per party mon per battle
+
+void EnqueueRandomLevelEvolution(u8 partyId)
+{
+    u8 writeIndex;
+
+    if (partyId >= PARTY_SIZE)
+        return;
+    // Only one random evolution per mon even across multi-level-ups in this battle.
+    if (sRandomLevelEvoQueuedBits & gBitTable[partyId])
+        return;
+    if (sRandomLevelEvoQueueCount >= RANDOM_LEVEL_EVO_QUEUE_SIZE)
+        return;
+
+    sRandomLevelEvoQueuedBits |= gBitTable[partyId];
+    writeIndex = (sRandomLevelEvoQueueRead + sRandomLevelEvoQueueCount) % RANDOM_LEVEL_EVO_QUEUE_SIZE;
+    sRandomLevelEvoQueue[writeIndex] = partyId;
+    sRandomLevelEvoQueueCount++;
+}
+
+bool8 HasQueuedRandomLevelEvolutions(void)
+{
+    return sRandomLevelEvoQueueCount != 0;
+}
+
+static u8 DequeueRandomLevelEvolution(void)
+{
+    u8 partyId = sRandomLevelEvoQueue[sRandomLevelEvoQueueRead];
+
+    sRandomLevelEvoQueueRead = (sRandomLevelEvoQueueRead + 1) % RANDOM_LEVEL_EVO_QUEUE_SIZE;
+    sRandomLevelEvoQueueCount--;
+    return partyId;
+}
+
+static void ClearRandomLevelEvolutionQueue(void)
+{
+    sRandomLevelEvoQueueCount = 0;
+    sRandomLevelEvoQueueRead = 0;
+    sRandomLevelEvoQueuedBits = 0;
+}
 COMMON_DATA void (*gBattlerControllerFuncs[MAX_BATTLERS_COUNT])(void) = {0};
 COMMON_DATA u8 gHealthboxSpriteIds[MAX_BATTLERS_COUNT] = {0};
 COMMON_DATA u8 gMultiUsePlayerCursor = 0;
@@ -1447,10 +1493,16 @@ static void CB2_HandleStartMultiBattle(void)
 void BattleMainCB2(void)
 {
     AnimateSprites();
+    RunTasks();
+    // ~2x battle move/status anims: advance sprites & anim tasks twice per frame
+    if (gAnimScriptActive)
+    {
+        AnimateSprites();
+        RunTasks();
+    }
     BuildOamBuffer();
     RunTextPrinters();
     UpdatePaletteFade();
-    RunTasks();
 
     if (JOY_HELD(B_BUTTON) && gBattleTypeFlags & BATTLE_TYPE_POKEDUDE)
     {
@@ -1892,11 +1944,18 @@ static void SpriteCB_MoveWildMonToRight(struct Sprite *sprite)
 {
     if ((gIntroSlideFlags & 1) == 0)
     {
-        sprite->x2 += 2;
-        if (sprite->x2 == 0)
+        u8 i;
+
+        // 3x faster wild mon slide-in
+        for (i = 0; i < 3; i++)
         {
-            sprite->callback = SpriteCB_WildMonShowHealthbox;
-            PlayCry_Normal(sprite->data[2], 25);
+            sprite->x2 += 2;
+            if (sprite->x2 == 0)
+            {
+                sprite->callback = SpriteCB_WildMonShowHealthbox;
+                PlayCry_Normal(sprite->data[2], 25);
+                return;
+            }
         }
     }
 }
@@ -2277,6 +2336,7 @@ static void BattleStartClearSetData(void)
     gBattleScripting.animTurn = 0;
     gBattleScripting.animTargetsHit = 0;
     gLeveledUpInBattle = 0;
+    ClearRandomLevelEvolutionQueue();
     gAbsentBattlerFlags = 0;
     gBattleStruct->runTries = 0;
     gBattleStruct->safariRockThrowCounter = 0;
@@ -3863,8 +3923,11 @@ static void FreeResetData_ReturnToOvOrDoEvolutions(void)
     if (!gPaletteFade.active)
     {
         ResetSpriteData();
-        if (gLeveledUpInBattle == 0 || gBattleOutcome != B_OUTCOME_WON)
+        if (!HasQueuedRandomLevelEvolutions() || gBattleOutcome != B_OUTCOME_WON)
+        {
+            ClearRandomLevelEvolutionQueue();
             gBattleMainFunc = ReturnFromBattleToOverworld;
+        }
         else
             gBattleMainFunc = TryEvolvePokemon;
         FreeAllWindowBuffers();
@@ -3879,29 +3942,18 @@ static void FreeResetData_ReturnToOvOrDoEvolutions(void)
 
 static void TryEvolvePokemon(void)
 {
-    s32 i;
-
-    while (gLeveledUpInBattle != 0)
+    while (HasQueuedRandomLevelEvolutions())
     {
-        for (i = 0; i < PARTY_SIZE; i++)
-        {
-            if (gLeveledUpInBattle & gBitTable[i])
-            {
-                u16 species;
-                u8 levelUpBits = gLeveledUpInBattle;
+        u8 partyId = DequeueRandomLevelEvolution();
+        struct Pokemon *mon = &gPlayerParty[partyId];
 
-                levelUpBits &= ~(gBitTable[i]);
-                gLeveledUpInBattle = levelUpBits;
+        if (GetMonData(mon, MON_DATA_SPECIES, NULL) == SPECIES_NONE
+            || GetMonData(mon, MON_DATA_IS_EGG, NULL))
+            continue;
 
-                species = GetEvolutionTargetSpecies(&gPlayerParty[i], EVO_MODE_NORMAL, levelUpBits);
-                if (species != SPECIES_NONE)
-                {
-                    gBattleMainFunc = WaitForEvoSceneToFinish;
-                    EvolutionScene(&gPlayerParty[i], species, 0x81, i);
-                    return;
-                }
-            }
-        }
+        gBattleMainFunc = WaitForEvoSceneToFinish;
+        EvolutionSceneRandomLevel(mon, FALSE, partyId);
+        return;
     }
     gBattleMainFunc = ReturnFromBattleToOverworld;
 }

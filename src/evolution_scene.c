@@ -41,6 +41,8 @@ struct EvoInfo
 // EWRAM vars
 static EWRAM_DATA struct EvoInfo *sEvoStructPtr = NULL;
 static EWRAM_DATA u16 *sBgAnimPal = NULL;
+EWRAM_DATA bool8 gRandomLevelEvoActive = FALSE;
+static EWRAM_DATA u16 sRandomLevelEvoMove = MOVE_NONE;
 
 // IWRAM common
 COMMON_DATA void (*gCB2_AfterEvolution)(void) = NULL;
@@ -200,11 +202,56 @@ static void Task_BeginEvolutionScene(u8 taskId)
 void BeginEvolutionScene(struct Pokemon* mon, u16 postEvoSpecies, bool8 canStopEvo, u8 partyId)
 {
     u8 taskId = CreateTask(Task_BeginEvolutionScene, 0);
+    gRandomLevelEvoActive = FALSE;
+    sRandomLevelEvoMove = MOVE_NONE;
     gTasks[taskId].tState = 0;
     gTasks[taskId].tPostEvoSpecies = postEvoSpecies;
     gTasks[taskId].tCanStop = canStopEvo;
     gTasks[taskId].tPartyId = partyId;
     SetMainCallback2(CB2_BeginEvolutionScene);
+}
+
+static void Task_BeginRandomLevelEvolutionScene(u8 taskId)
+{
+    switch (gTasks[taskId].tState)
+    {
+    case 0:
+        BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 0x10, RGB_BLACK);
+        gTasks[taskId].tState++;
+        break;
+    case 1:
+        if (!gPaletteFade.active)
+        {
+            bool8 canStopEvo = gTasks[taskId].tCanStop;
+            u8 partyId = gTasks[taskId].tPartyId;
+
+            DestroyTask(taskId);
+            EvolutionSceneRandomLevel(&gPlayerParty[partyId], canStopEvo, partyId);
+        }
+        break;
+    }
+}
+
+void BeginRandomLevelEvolutionScene(struct Pokemon *mon, bool8 canStopEvo, u8 partyId)
+{
+    u8 taskId = CreateTask(Task_BeginRandomLevelEvolutionScene, 0);
+    (void)mon;
+    (void)canStopEvo;
+    gTasks[taskId].tState = 0;
+    gTasks[taskId].tCanStop = FALSE; // random evolutions are never cancelable
+    gTasks[taskId].tPartyId = partyId;
+    SetMainCallback2(CB2_BeginEvolutionScene);
+}
+
+void EvolutionSceneRandomLevel(struct Pokemon *mon, bool8 canStopEvo, u8 partyId)
+{
+    u16 currentSpecies = GetMonData(mon, MON_DATA_SPECIES, NULL);
+    u16 postEvoSpecies = GetRandomValidSpecies(currentSpecies);
+
+    (void)canStopEvo;
+    gRandomLevelEvoActive = TRUE;
+    sRandomLevelEvoMove = GetRandomLevelUpMove(mon, postEvoSpecies);
+    EvolutionScene(mon, postEvoSpecies, FALSE, partyId); // never cancelable
 }
 
 void EvolutionScene(struct Pokemon* mon, u16 postEvoSpecies, bool8 canStopEvo, u8 partyId)
@@ -475,6 +522,11 @@ void TradeEvolutionScene(struct Pokemon* mon, u16 postEvoSpecies, u8 preEvoSprit
     const struct CompressedSpritePalette* pokePal;
     u8 id;
 
+    currSpecies = GetMonData(mon, MON_DATA_SPECIES);
+    postEvoSpecies = GetRandomValidSpecies(currSpecies);
+    gRandomLevelEvoActive = TRUE;
+    sRandomLevelEvoMove = GetRandomLevelUpMove(mon, postEvoSpecies);
+
     GetMonData(mon, MON_DATA_NICKNAME, name);
     StringCopy_Nickname(gStringVar1, name);
     StringCopy(gStringVar2, gSpeciesNames[postEvoSpecies]);
@@ -482,7 +534,6 @@ void TradeEvolutionScene(struct Pokemon* mon, u16 postEvoSpecies, u8 preEvoSprit
     gAffineAnimsDisabled = TRUE;
 
     // preEvo sprite
-    currSpecies = GetMonData(mon, MON_DATA_SPECIES);
     personality = GetMonData(mon, MON_DATA_PERSONALITY);
     trainerId = GetMonData(mon, MON_DATA_OT_ID);
 
@@ -637,8 +688,9 @@ static void Task_EvolutionScene(u8 taskId)
     struct Pokemon* mon = &gPlayerParty[gTasks[taskId].tPartyId];
 
     // Automatically cancel if the Pokemon would evolve into a species you have not
-    // yet unlocked, such as Crobat.
-    if (!IsNationalPokedexEnabled()
+    // yet unlocked, such as Crobat. Random level evolutions ignore this restriction.
+    if (!gRandomLevelEvoActive
+        && !IsNationalPokedexEnabled()
         && gTasks[taskId].tState == EVOSTATE_WAIT_CYCLE_MON_SPRITE
         && gTasks[taskId].tPostEvoSpecies > SPECIES_MEW)
     {
@@ -776,8 +828,15 @@ static void Task_EvolutionScene(u8 taskId)
             BattlePutTextOnWindow(gStringVar4, B_WIN_MSG);
             PlayBGM(MUS_EVOLVED);
             gTasks[taskId].tState++;
-            SetMonData(mon, MON_DATA_SPECIES, (void *)(&gTasks[taskId].tPostEvoSpecies));
-            CalculateMonStats(mon);
+            if (gRandomLevelEvoActive)
+            {
+                SetMonSpeciesPreserveLevel(mon, gTasks[taskId].tPostEvoSpecies);
+            }
+            else
+            {
+                SetMonData(mon, MON_DATA_SPECIES, (void *)(&gTasks[taskId].tPostEvoSpecies));
+                CalculateMonStats(mon);
+            }
             EvolutionRenameMon(mon, gTasks[taskId].tPreEvoSpecies, gTasks[taskId].tPostEvoSpecies);
             GetSetPokedexFlag(SpeciesToNationalPokedexNum(gTasks[taskId].tPostEvoSpecies), FLAG_SET_SEEN);
             GetSetPokedexFlag(SpeciesToNationalPokedexNum(gTasks[taskId].tPostEvoSpecies), FLAG_SET_CAUGHT);
@@ -788,30 +847,67 @@ static void Task_EvolutionScene(u8 taskId)
         if (!IsTextPrinterActive(0))
         {
             HelpSystem_Enable();
-            var = MonTryLearningNewMove(mon, gTasks[taskId].tLearnsFirstMove);
-            if (var != MOVE_NONE && !gTasks[taskId].tEvoWasStopped)
+            if (gRandomLevelEvoActive)
             {
-                u8 text[20];
+                if (gTasks[taskId].tLearnsFirstMove
+                    && sRandomLevelEvoMove != MOVE_NONE
+                    && !gTasks[taskId].tEvoWasStopped)
+                {
+                    u8 text[20];
 
-                StopMapMusic();
-                Overworld_PlaySpecialMapMusic();
-                gTasks[taskId].tBits |= TASK_BIT_LEARN_MOVE;
-                gTasks[taskId].tLearnsFirstMove = FALSE;
-                gTasks[taskId].tLearnMoveState = MVSTATE_INTRO_MSG_1;
-                GetMonData(mon, MON_DATA_NICKNAME, text);
-                StringCopy_Nickname(gBattleTextBuff1, text);
+                    gMoveToLearn = sRandomLevelEvoMove;
+                    var = GiveMoveToMon(mon, gMoveToLearn);
+                    StopMapMusic();
+                    Overworld_PlaySpecialMapMusic();
+                    gTasks[taskId].tBits |= TASK_BIT_LEARN_MOVE;
+                    gTasks[taskId].tLearnsFirstMove = FALSE;
+                    gTasks[taskId].tLearnMoveState = MVSTATE_INTRO_MSG_1;
+                    GetMonData(mon, MON_DATA_NICKNAME, text);
+                    StringCopy_Nickname(gBattleTextBuff1, text);
 
-                if (var == MON_HAS_MAX_MOVES)
-                    gTasks[taskId].tState = EVOSTATE_REPLACE_MOVE;
-                else if (var == MON_ALREADY_KNOWS_MOVE)
-                    break;
+                    if (var == MON_HAS_MAX_MOVES)
+                        gTasks[taskId].tState = EVOSTATE_REPLACE_MOVE;
+                    else if (var == MON_ALREADY_KNOWS_MOVE)
+                    {
+                        BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 0x10, RGB_BLACK);
+                        gTasks[taskId].tState = EVOSTATE_END;
+                    }
+                    else
+                        gTasks[taskId].tState = EVOSTATE_LEARNED_MOVE;
+                }
                 else
-                    gTasks[taskId].tState = EVOSTATE_LEARNED_MOVE;
+                {
+                    BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 0x10, RGB_BLACK);
+                    gTasks[taskId].tState++;
+                }
             }
-            else // no move to learn, or evolution was canceled
+            else
             {
-                BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 0x10, RGB_BLACK);
-                gTasks[taskId].tState++;
+                var = MonTryLearningNewMove(mon, gTasks[taskId].tLearnsFirstMove);
+                if (var != MOVE_NONE && !gTasks[taskId].tEvoWasStopped)
+                {
+                    u8 text[20];
+
+                    StopMapMusic();
+                    Overworld_PlaySpecialMapMusic();
+                    gTasks[taskId].tBits |= TASK_BIT_LEARN_MOVE;
+                    gTasks[taskId].tLearnsFirstMove = FALSE;
+                    gTasks[taskId].tLearnMoveState = MVSTATE_INTRO_MSG_1;
+                    GetMonData(mon, MON_DATA_NICKNAME, text);
+                    StringCopy_Nickname(gBattleTextBuff1, text);
+
+                    if (var == MON_HAS_MAX_MOVES)
+                        gTasks[taskId].tState = EVOSTATE_REPLACE_MOVE;
+                    else if (var == MON_ALREADY_KNOWS_MOVE)
+                        break;
+                    else
+                        gTasks[taskId].tState = EVOSTATE_LEARNED_MOVE;
+                }
+                else // no move to learn, or evolution was canceled
+                {
+                    BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 0x10, RGB_BLACK);
+                    gTasks[taskId].tState++;
+                }
             }
         }
         break;
@@ -823,9 +919,11 @@ static void Task_EvolutionScene(u8 taskId)
                 StopMapMusic();
                 Overworld_PlaySpecialMapMusic();
             }
-            if (!gTasks[taskId].tEvoWasStopped)
+            if (!gTasks[taskId].tEvoWasStopped && !gRandomLevelEvoActive)
                 CreateShedinja(gTasks[taskId].tPreEvoSpecies, mon);
 
+            gRandomLevelEvoActive = FALSE;
+            sRandomLevelEvoMove = MOVE_NONE;
             DestroyTask(taskId);
             FreeMonSpritesGfx();
             FREE_AND_SET_NULL(sEvoStructPtr);
@@ -895,7 +993,15 @@ static void Task_EvolutionScene(u8 taskId)
                 // "But, {mon} can't learn more than four moves"
                 BattleStringExpandPlaceholdersToDisplayedString(gBattleStringsTable[STRINGID_TRYTOLEARNMOVE2 - BATTLESTRINGS_TABLE_START]);
                 BattlePutTextOnWindow(gDisplayedStringBattle, B_WIN_MSG);
-                gTasks[taskId].tLearnMoveState++;
+                if (gRandomLevelEvoActive)
+                {
+                    // Wait for A on this message, then open move select (skip "Delete a move?").
+                    gTasks[taskId].tLearnMoveState = MVSTATE_RETRY_AFTER_HM;
+                }
+                else
+                {
+                    gTasks[taskId].tLearnMoveState++;
+                }
             }
             break;
         case MVSTATE_INTRO_MSG_3:
@@ -981,15 +1087,24 @@ static void Task_EvolutionScene(u8 taskId)
                 if (var == MAX_MON_MOVES)
                 {
                     // Didn't select move slot
-                    gTasks[taskId].tLearnMoveState = MVSTATE_ASK_CANCEL;
+                    if (gRandomLevelEvoActive)
+                    {
+                        StringExpandPlaceholders(gStringVar4, gText_CannotRefuseLearningMove);
+                        BattlePutTextOnWindow(gStringVar4, B_WIN_MSG);
+                        gTasks[taskId].tLearnMoveState = MVSTATE_RETRY_AFTER_HM;
+                    }
+                    else
+                    {
+                        gTasks[taskId].tLearnMoveState = MVSTATE_ASK_CANCEL;
+                    }
                 }
                 else
                 {
                     // Selected move to forget
                     u16 move = GetMonData(mon, var + MON_DATA_MOVE1);
-                    if (IsHMMove2(move))
+                    if (IsHMMove2(move) && !gRandomLevelEvoActive)
                     {
-                        // Can't forget HMs
+                        // Can't forget HMs (except during forced random evo learning)
                         BattleStringExpandPlaceholdersToDisplayedString(gBattleStringsTable[STRINGID_HMMOVESCANTBEFORGOTTEN - BATTLESTRINGS_TABLE_START]);
                         BattlePutTextOnWindow(gDisplayedStringBattle, B_WIN_MSG);
                         gTasks[taskId].tLearnMoveState = MVSTATE_RETRY_AFTER_HM;
@@ -1041,7 +1156,10 @@ static void Task_EvolutionScene(u8 taskId)
             break;
         case MVSTATE_RETRY_AFTER_HM:
             if (!IsTextPrinterActive(0) && !IsSEPlaying())
+            {
+                BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 0x10, RGB_BLACK);
                 gTasks[taskId].tLearnMoveState = MVSTATE_SHOW_MOVE_SELECT;
+            }
             break;
         }
         break;
@@ -1096,7 +1214,8 @@ static void Task_TradeEvolutionScene(u8 taskId)
 
     // Automatically cancel if the Pokemon would evolve into a species you have not
     // yet unlocked, such as Crobat.
-    if (!IsNationalPokedexEnabled()
+    if (!gRandomLevelEvoActive
+        && !IsNationalPokedexEnabled()
         && gTasks[taskId].tState == T_EVOSTATE_WAIT_CYCLE_MON_SPRITE
         && gTasks[taskId].tPostEvoSpecies > SPECIES_MEW)
     {
@@ -1210,8 +1329,7 @@ static void Task_TradeEvolutionScene(u8 taskId)
             DrawTextOnTradeWindow(0, gStringVar4, 1);
             PlayFanfare(MUS_EVOLVED);
             gTasks[taskId].tState++;
-            SetMonData(mon, MON_DATA_SPECIES, (&gTasks[taskId].tPostEvoSpecies));
-            CalculateMonStats(mon);
+            SetMonSpeciesPreserveLevel(mon, gTasks[taskId].tPostEvoSpecies);
             EvolutionRenameMon(mon, gTasks[taskId].tPreEvoSpecies, gTasks[taskId].tPostEvoSpecies);
             GetSetPokedexFlag(SpeciesToNationalPokedexNum(gTasks[taskId].tPostEvoSpecies), FLAG_SET_SEEN);
             GetSetPokedexFlag(SpeciesToNationalPokedexNum(gTasks[taskId].tPostEvoSpecies), FLAG_SET_CAUGHT);
@@ -1221,7 +1339,15 @@ static void Task_TradeEvolutionScene(u8 taskId)
     case T_EVOSTATE_TRY_LEARN_MOVE:
         if (!IsTextPrinterActive(0) && IsFanfareTaskInactive() == TRUE)
         {
-            var = MonTryLearningNewMove(mon, gTasks[taskId].tLearnsFirstMove);
+            if (gTasks[taskId].tLearnsFirstMove && sRandomLevelEvoMove != MOVE_NONE)
+            {
+                gMoveToLearn = sRandomLevelEvoMove;
+                var = GiveMoveToMon(mon, gMoveToLearn);
+            }
+            else
+            {
+                var = MOVE_NONE;
+            }
             if (var != MOVE_NONE && !gTasks[taskId].tEvoWasStopped)
             {
                 u8 text[20];
@@ -1250,6 +1376,8 @@ static void Task_TradeEvolutionScene(u8 taskId)
     case T_EVOSTATE_END:
         if (!IsTextPrinterActive(0))
         {
+            gRandomLevelEvoActive = FALSE;
+            sRandomLevelEvoMove = MOVE_NONE;
             DestroyTask(taskId);
             FREE_AND_SET_NULL(sEvoStructPtr);
             sEvoStructPtr = NULL;
@@ -1315,7 +1443,15 @@ static void Task_TradeEvolutionScene(u8 taskId)
                 // "But, {mon} can't learn more than four moves"
                 BattleStringExpandPlaceholdersToDisplayedString(gBattleStringsTable[STRINGID_TRYTOLEARNMOVE2 - BATTLESTRINGS_TABLE_START]);
                 DrawTextOnTradeWindow(0, gDisplayedStringBattle, 1);
-                gTasks[taskId].tLearnMoveState++;
+                if (gRandomLevelEvoActive)
+                {
+                    // Wait for A on this message, then open move select (skip "Delete a move?").
+                    gTasks[taskId].tLearnMoveState = T_MVSTATE_RETRY_AFTER_HM;
+                }
+                else
+                {
+                    gTasks[taskId].tLearnMoveState++;
+                }
             }
             break;
         case T_MVSTATE_INTRO_MSG_3:
@@ -1382,13 +1518,22 @@ static void Task_TradeEvolutionScene(u8 taskId)
                 if (var == MAX_MON_MOVES)
                 {
                     // Didn't select move slot
-                    gTasks[taskId].tLearnMoveState = T_MVSTATE_ASK_CANCEL;
+                    if (gRandomLevelEvoActive)
+                    {
+                        StringExpandPlaceholders(gStringVar4, gText_CannotRefuseLearningMove);
+                        DrawTextOnTradeWindow(0, gStringVar4, 1);
+                        gTasks[taskId].tLearnMoveState = T_MVSTATE_RETRY_AFTER_HM;
+                    }
+                    else
+                    {
+                        gTasks[taskId].tLearnMoveState = T_MVSTATE_ASK_CANCEL;
+                    }
                 }
                 else
                 {
                     // Selected move to forget
                     u16 move = GetMonData(mon, var + MON_DATA_MOVE1);
-                    if (IsHMMove2(move))
+                    if (IsHMMove2(move) && !gRandomLevelEvoActive)
                     {
                         // Can't forget HMs
                         BattleStringExpandPlaceholdersToDisplayedString(gBattleStringsTable[STRINGID_HMMOVESCANTBEFORGOTTEN - BATTLESTRINGS_TABLE_START]);
@@ -1439,7 +1584,10 @@ static void Task_TradeEvolutionScene(u8 taskId)
             break;
         case T_MVSTATE_RETRY_AFTER_HM:
             if (!IsTextPrinterActive(0) && !IsSEPlaying())
+            {
+                BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 0x10, RGB_BLACK);
                 gTasks[taskId].tLearnMoveState = T_MVSTATE_SHOW_MOVE_SELECT;
+            }
             break;
         }
         break;

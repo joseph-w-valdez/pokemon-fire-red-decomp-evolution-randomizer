@@ -188,28 +188,36 @@ gPikachuIntro_Text_Page3::
 
 gOakSpeech_Text_WelcomeToTheWorld::
     .string "Hello, there!\n"
-    .string "Glad to meet you!\p"
-    .string "Welcome to the world of POKéMON!\p"
-    .string "My name is OAK.\p"
-    .string "People affectionately refer to me\n"
-    .string "as the POKéMON PROFESSOR.\p$"
+    .string "Thanks for playing my ROM hack!\p"
+    .string "My name is still OAK… but this world\n"
+    .string "works a little differently.\p$"
 
 gOakSpeech_Text_ThisWorld::
-    .string "This world…$"
+    .string "In this world…$"
 
 gOakSpeech_Text_IsInhabitedFarAndWide::
-    .string "…is inhabited far and wide by\n"
-    .string "creatures called POKéMON.\p$"
+    .string "…every evolution is completely random.\p"
+    .string "Level-up, trade, stone…\n"
+    .string "it doesn't matter.\p"
+    .string "Your POKéMON will become\n"
+    .string "something new.\p"
+    .string "When they evolve, they learn a move\n"
+    .string "from that species' full moveset.\p"
+    .string "No escaping it!\p$"
 
 gOakSpeech_Text_IStudyPokemon::
-    .string "For some people, POKéMON are pets.\n"
-    .string "Others use them for battling.\p"
-    .string "As for myself…\p"
-    .string "I study POKéMON as a profession.\p$"
+    .string "I've made getting around easier, too.\p"
+    .string "Walking, running, and biking are all\n"
+    .string "much faster than before.\p"
+    .string "TMs never run out.\n"
+    .string "HMs can be forgotten.\p"
+    .string "KEY ITEMS handle field moves.\p"
+    .string "The SAFARI ZONE is just a normal\n"
+    .string "area now, as well. No special rules.\p$"
 
 gOakSpeech_Text_TellMeALittleAboutYourself::
-    .string "But first, tell me a little about\n"
-    .string "yourself.\p$"
+    .string "That's enough from me.\n"
+    .string "Tell me a little about yourself.\p$"
 
 gOakSpeech_Text_YourNameWhatIsIt::
     .string "Let's begin with your name.\n"
@@ -234,6 +242,15 @@ gOakSpeech_Text_ConfirmRivalName::
 gOakSpeech_Text_RememberRivalsName::
     .string "That's right! I remember now!\n"
     .string "His name is {RIVAL}!\p$"
+
+gOakSpeech_Text_AskNuzlocke::
+    .string "One more thing!\p"
+    .string "Would you like to play with\n"
+    .string "NUZLOCKE rules?\p"
+    .string "You may only catch the first wild\n"
+    .string "POKéMON in each area.\p"
+    .string "And if a POKéMON faints…\n"
+    .string "it can't be revived.$"
 
 gOakSpeech_Text_LetsGo::
     .string "{PLAYER}!\p"

@@ -23,5 +23,7 @@
 // Array buffers
 #define EGG_MOVES_ARRAY_COUNT           10
 #define EGG_LVL_UP_MOVES_ARRAY_COUNT    50
+#define EGG_MOVES_SPECIES_OFFSET        20000
+#define EGG_MOVES_TERMINATOR            0xFFFF
 
 #endif //GUARD_DAYCARE_CONSTANTS_H

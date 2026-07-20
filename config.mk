@@ -11,6 +11,10 @@ COMPARE       ?= 0
 
 KEEP_TEMPS    ?= 0
 
+# Romhack release metadata (filename: pokemon-random-evolution-v{HACK_VERSION}.gba)
+HACK_NAME     ?= pokemon-random-evolution
+HACK_VERSION  ?= 0.2.0
+
 ifeq (modern,$(MAKECMDGOALS))
   MODERN := 1
 endif

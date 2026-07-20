@@ -1,5 +1,9 @@
 FuchsiaCity_SafariZone_Entrance_Text_WelcomeToSafariZone::
-    .string "Welcome to the SAFARI ZONE!$"
+	.string "Welcome to the SAFARI ZONE!$"
+
+FuchsiaCity_SafariZone_Entrance_Text_SafariZoneOpen::
+	.string "The SAFARI ZONE is open!\n"
+	.string "Go enjoy the wildlife.$"
 
 FuchsiaCity_SafariZone_Entrance_Text_PlaySafariGameFor500::
     .string "For just ¥500, you can play the\n"

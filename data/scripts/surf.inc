@@ -1,9 +1,9 @@
 EventScript_UseSurf::
 	goto_if_questlog EventScript_UseSurfEnd
-	checkpartymove MOVE_SURF
-	goto_if_eq VAR_RESULT, PARTY_SIZE, EventScript_UseSurfEnd
-	bufferpartymonnick STR_VAR_1, VAR_RESULT
-	setfieldeffectargument 0, VAR_RESULT
+	goto_if_unset FLAG_BADGE05_GET, EventScript_UseSurfEnd
+	checkitem ITEM_POOL_NOODLE, 1
+	goto_if_eq VAR_RESULT, FALSE, EventScript_UseSurfEnd
+	bufferitemname STR_VAR_2, ITEM_POOL_NOODLE
 	lockall
 	msgbox Text_WantToSurf, MSGBOX_YESNO
 	goto_if_eq VAR_RESULT, NO, EventScript_UseSurfRelease

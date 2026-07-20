@@ -8,14 +8,20 @@ Route16_House_Text_ReceivedHM02FromGirl::
     .string "{PLAYER} received HM02\n"
     .string "from the girl.$"
 
+Route16_House_Text_AlsoTakeWaymo::
+    .string "Oh, and take this WAYMO, too!$"
+
+Route16_House_Text_ReceivedWaymoFromGirl::
+    .string "{PLAYER} received the WAYMO\n"
+    .string "from the girl.$"
+
 Route16_House_Text_ExplainHM02::
-    .string "HM02 is FLY.\n"
-    .string "It's a wonderfully convenient move.\p"
-    .string "Please, put it to good use.$"
+    .string "With the right BADGE, use WAYMO\n"
+    .string "from your BAG to fly around.\p"
+    .string "You can go almost anywhere!$"
 
 Route16_House_Text_DontHaveAnyRoomForThis::
     .string "You don't have any room for this.$"
 
 Route16_House_Text_Fearow::
     .string "FEAROW: Kyueen!$"
-

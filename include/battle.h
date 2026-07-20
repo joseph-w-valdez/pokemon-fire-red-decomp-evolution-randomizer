@@ -715,6 +715,8 @@ extern u16 gLockedMoves[MAX_BATTLERS_COUNT];
 extern u8 gCurrentTurnActionNumber;
 extern u16 gExpShareExp;
 extern u8 gLeveledUpInBattle;
+void EnqueueRandomLevelEvolution(u8 partyId);
+bool8 HasQueuedRandomLevelEvolutions(void);
 extern u16 gLastResultingMoves[MAX_BATTLERS_COUNT];
 extern u16 gLastPrintedMoves[MAX_BATTLERS_COUNT];
 extern u8 gActionsByTurnOrder[MAX_BATTLERS_COUNT];

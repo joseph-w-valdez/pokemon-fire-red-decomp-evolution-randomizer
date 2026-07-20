@@ -31,6 +31,8 @@ OneIsland_KindleRoad_EmberSpa_EventScript_RockSmashMan::
 	goto_if_set FLAG_GOT_HM06, OneIsland_KindleRoad_EmberSpa_EventScript_AlreadyGotHM06
 	msgbox OneIsland_KindleRoad_EmberSpa_Text_UsedThisToMakeEmberSpa
 	giveitem ITEM_HM06
+	msgbox OneIsland_KindleRoad_EmberSpa_Text_AlsoTakeGeocide
+	giveitem_msg OneIsland_KindleRoad_EmberSpa_Text_ReceivedGeocide, ITEM_GEOCIDE, 1, MUS_OBTAIN_KEY_ITEM
 	setflag FLAG_GOT_HM06
 	msgbox OneIsland_KindleRoad_EmberSpa_Text_ExplainHM06
 	release

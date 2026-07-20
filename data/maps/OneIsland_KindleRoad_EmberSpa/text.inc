@@ -48,7 +48,16 @@ OneIsland_KindleRoad_EmberSpa_Text_UsedThisToMakeEmberSpa::
     .string "I was using this at the time.\n"
     .string "I suppose I can part with it.$"
 
+OneIsland_KindleRoad_EmberSpa_Text_AlsoTakeGeocide::
+    .string "Take this GEOCIDE as well.\n"
+    .string "Rocks had it coming.$"
+
+OneIsland_KindleRoad_EmberSpa_Text_ReceivedGeocide::
+    .string "{PLAYER} received the GEOCIDE!$"
+
 OneIsland_KindleRoad_EmberSpa_Text_ExplainHM06::
-    .string "That shatters boulders as if they\n"
+    .string "With the right BADGE, smash rocks\n"
+    .string "straight from your BAG.\p"
+    .string "It shatters boulders as if they\n"
     .string "were made of crackers.$"
 

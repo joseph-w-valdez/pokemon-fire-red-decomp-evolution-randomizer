@@ -20,6 +20,9 @@
 
 #define PALTAG_UNUSED_MUGSHOT 0x100A
 
+// Run transition child tasks this many times per frame (~3x faster field transitions).
+#define BATTLE_TRANSITION_SPEED 3
+
 #define B_TRANS_DMA_FLAGS (1 | ((DMA_SRC_INC | DMA_DEST_FIXED | DMA_REPEAT | DMA_16BIT | DMA_START_HBLANK | DMA_ENABLE) << 16))
 
 // Used by each transition task to determine which of its functions to call
@@ -191,6 +194,7 @@ static void VBlankCB_AngledWipes(void);
 
 static void LaunchBattleTransitionTask(u8 transitionId);
 static void Task_BattleTransition(u8 taskId);
+static void AdvanceTransitionTaskExtra(TaskFunc func);
 static void InitTransitionData(void);
 static void CreateIntroTask(s16 fadeOutDelay, s16 fadeInDelay, s16 blinkTimes, s16 fadeOutSpeed, s16 fadeInSpeed);
 static bool8 IsIntroTaskDone(void);
@@ -652,6 +656,21 @@ static void Task_BattleTransition(u8 taskId)
     while (sTaskHandlers[gTasks[taskId].tState](&gTasks[taskId]));
 }
 
+// Extra ticks so child tasks run BATTLE_TRANSITION_SPEED times per frame
+// (once from the task system + SPEED-1 here), re-finding after each call.
+static void AdvanceTransitionTaskExtra(TaskFunc func)
+{
+    u8 i;
+
+    for (i = 1; i < BATTLE_TRANSITION_SPEED; i++)
+    {
+        u8 taskId = FindTaskIdByFunc(func);
+        if (taskId == TASK_NONE)
+            return;
+        gTasks[taskId].func(taskId);
+    }
+}
+
 static bool8 Transition_StartIntro(struct Task *task)
 {
     SetWeatherScreenFadeOut();
@@ -671,6 +690,8 @@ static bool8 Transition_StartIntro(struct Task *task)
 
 static bool8 Transition_WaitForIntro(struct Task *task)
 {
+    // Speed the gray flicker; Task_Intro mostly waits on this child.
+    AdvanceTransitionTaskExtra(Task_BattleTransition_Intro);
     if (FindTaskIdByFunc(sTasks_Intro[task->tTransitionId]) == TASK_NONE)
     {
         task->tState++;
@@ -691,8 +712,23 @@ static bool8 Transition_StartMain(struct Task *task)
 
 static bool8 Transition_WaitForMain(struct Task *task)
 {
+    u8 i;
+    TaskFunc mainFunc = sTasks_Main[task->tTransitionId];
+
+    // Main effect already ran once this frame (priority 0); add SPEED-1 more.
+    // Also advance palette fades that gate several transitions.
+    for (i = 1; i < BATTLE_TRANSITION_SPEED; i++)
+    {
+        u8 childTaskId = FindTaskIdByFunc(mainFunc);
+        if (childTaskId == TASK_NONE)
+            break;
+        gTasks[childTaskId].func(childTaskId);
+        if (gPaletteFade.active)
+            UpdatePaletteFade();
+    }
+
     task->tTransitionDone = FALSE;
-    if (FindTaskIdByFunc(sTasks_Main[task->tTransitionId]) == TASK_NONE)
+    if (FindTaskIdByFunc(mainFunc) == TASK_NONE)
         task->tTransitionDone = TRUE;
     return FALSE;
 }

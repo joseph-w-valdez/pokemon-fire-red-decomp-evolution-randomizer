@@ -13,6 +13,7 @@
 #include "naming_screen.h"
 #include "math_util.h"
 #include "overworld.h"
+#include "nuzlocke.h"
 #include "random.h"
 #include "data.h"
 #include "constants/songs.h"
@@ -82,6 +83,9 @@ static void Task_OakSpeech_FadeOutRivalPic(u8);
 static void Task_OakSpeech_FadeInRivalPic(u8);
 static void Task_OakSpeech_AskRivalsName(u8);
 static void Task_OakSpeech_ReshowPlayersPic(u8);
+static void Task_OakSpeech_AskNuzlocke(u8);
+static void Task_OakSpeech_ShowNuzlockeYesNo(u8);
+static void Task_OakSpeech_HandleNuzlockeInput(u8);
 static void Task_OakSpeech_LetsGo(u8);
 static void Task_OakSpeech_FadeOutBGM(u8);
 static void Task_OakSpeech_SetUpExitAnimation(u8);
@@ -760,33 +764,24 @@ static void Task_NewGameScene(u8 taskId)
     case 5:
         sOakSpeechResources->textSpeed = GetTextSpeedSetting();
         gTextFlags.canABSpeedUpPrint = TRUE;
-        DecompressAndCopyTileDataToVram(1, sControlsGuide_PikachuIntro_Background_Tiles, 0, 0, 0);
         break;
     case 6:
-        if (FreeTempTileDataBuffersIfPossible())
-            return;
         ClearDialogWindowAndFrame(WIN_INTRO_TEXTBOX, TRUE);
         FillBgTilemapBufferRect_Palette0(1, 0, 0, 0, 32, 32);
         CopyBgTilemapBufferToVram(1);
         break;
     case 7:
-        CreateTopBarWindowLoadPalette(0, 30, 0, 13, 0x1C4);
-        FillBgTilemapBufferRect_Palette0(1, 0xD00F, 0,  0, 30, 2);
-        FillBgTilemapBufferRect_Palette0(1, 0xD002, 0,  2, 30, 1);
-        FillBgTilemapBufferRect_Palette0(1, 0xD00E, 0, 19, 30, 1);
-        ControlsGuide_LoadPage1();
         gPaletteFade.bufferTransferDisabled = FALSE;
-        gTasks[taskId].tTextCursorSpriteId = CreateTextCursorSprite(0, 230, 149, 0, 0);
         BlendPalettes(PALETTES_ALL, 16, RGB_BLACK);
         break;
     case 10:
-        BeginNormalPaletteFade(PALETTES_ALL, 0, 16, 0, RGB_BLACK);
+        // Skip the Controls Guide and Pikachu intro; go straight to Oak.
         SetGpuReg(REG_OFFSET_DISPCNT, DISPCNT_MODE_0 | DISPCNT_OBJ_1D_MAP | DISPCNT_OBJ_ON);
         ShowBg(0);
         ShowBg(1);
         SetVBlankCallback(VBlankCB_NewGameScene);
-        PlayBGM(MUS_NEW_GAME_INSTRUCT);
-        gTasks[taskId].func = Task_ControlsGuide_HandleInput;
+        gTasks[taskId].tTimer = 0;
+        gTasks[taskId].func = Task_OakSpeech_Init;
         gMain.state = 0;
         return;
     }
@@ -1586,8 +1581,55 @@ static void Task_OakSpeech_ReshowPlayersPic(u8 taskId)
             gSpriteCoordOffsetX = 0;
             ChangeBgX(2, 0, BG_COORD_SET);
             CreateFadeOutTask(taskId, 2);
-            gTasks[taskId].func = Task_OakSpeech_LetsGo;
+            gTasks[taskId].func = Task_OakSpeech_AskNuzlocke;
         }
+    }
+}
+
+static void Task_OakSpeech_AskNuzlocke(u8 taskId)
+{
+    if (gTasks[taskId].tTrainerPicFadeState != 0)
+    {
+        OakSpeechPrintMessage(gOakSpeech_Text_AskNuzlocke, sOakSpeechResources->textSpeed);
+        gTasks[taskId].tTimer = 25;
+        gTasks[taskId].func = Task_OakSpeech_ShowNuzlockeYesNo;
+    }
+}
+
+static void Task_OakSpeech_ShowNuzlockeYesNo(u8 taskId)
+{
+    s16 *data = gTasks[taskId].data;
+
+    if (!IsTextPrinterActive(WIN_INTRO_TEXTBOX))
+    {
+        if (tTimer != 0)
+        {
+            tTimer--;
+        }
+        else
+        {
+            CreateYesNoMenu(&sIntro_WindowTemplates[WIN_INTRO_YESNO], FONT_NORMAL, 0, 2, GetStdWindowBaseTileNum(), 14, 0);
+            gTasks[taskId].func = Task_OakSpeech_HandleNuzlockeInput;
+        }
+    }
+}
+
+static void Task_OakSpeech_HandleNuzlockeInput(u8 taskId)
+{
+    s8 input = Menu_ProcessInputNoWrapClearOnChoose();
+    switch (input)
+    {
+    case 0: // YES
+        PlaySE(SE_SELECT);
+        Nuzlocke_SetEnabledFromIntro(TRUE);
+        gTasks[taskId].func = Task_OakSpeech_LetsGo;
+        break;
+    case 1: // NO
+    case MENU_B_PRESSED:
+        PlaySE(SE_SELECT);
+        Nuzlocke_SetEnabledFromIntro(FALSE);
+        gTasks[taskId].func = Task_OakSpeech_LetsGo;
+        break;
     }
 }
 

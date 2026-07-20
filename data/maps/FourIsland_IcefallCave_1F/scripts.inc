@@ -31,3 +31,6 @@ FourIsland_IcefallCave_1F_EventScript_FallDownHole::
 FourIsland_IcefallCave_1F_Movement_SetInvisible::
 	set_invisible
 	step_end
+
+FourIsland_IcefallCave_1F_Text_FoundFishLadder::
+	.string "{PLAYER} also found a FISH LADDER!$"

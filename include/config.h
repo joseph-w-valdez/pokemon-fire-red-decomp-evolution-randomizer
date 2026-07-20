@@ -73,4 +73,10 @@
 #endif // UBFIX
 #endif // MODERN
 
+// ---- Romhack feature toggles ----
+// HGSS-style party Pokémon follower. Engine is implemented, but FireRed only ships
+// OW sprites for a small set of species (others currently fall back to Pikachu).
+// Keep FALSE until a fuller overworld sprite set is added.
+#define OW_FOLLOWERS_ENABLED FALSE
+
 #endif // GUARD_CONFIG_H

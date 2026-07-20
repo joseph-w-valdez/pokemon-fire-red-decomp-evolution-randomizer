@@ -2,7 +2,21 @@ CeladonCity_Hotel_MapScripts::
 	.byte 0
 
 CeladonCity_Hotel_EventScript_Receptionist::
-	msgbox CeladonCity_Hotel_Text_ThisHotelIsForPeople, MSGBOX_NPC
+	lock
+	faceplayer
+	goto_if_set FLAG_GOT_TITAN, CeladonCity_Hotel_EventScript_ReceptionistAfter
+	msgbox CeladonCity_Hotel_Text_ThisHotelIsForPeople
+	giveitem_msg CeladonCity_Hotel_Text_ReceivedHM08, ITEM_HM08, 1, MUS_OBTAIN_KEY_ITEM
+	msgbox CeladonCity_Hotel_Text_AlsoTakeTitan
+	giveitem_msg CeladonCity_Hotel_Text_ReceivedTitan, ITEM_TITAN, 1, MUS_OBTAIN_KEY_ITEM
+	setflag FLAG_GOT_TITAN
+	msgbox CeladonCity_Hotel_Text_ExplainTitan
+	release
+	end
+
+CeladonCity_Hotel_EventScript_ReceptionistAfter::
+	msgbox CeladonCity_Hotel_Text_StillFullUp
+	release
 	end
 
 CeladonCity_Hotel_EventScript_Beauty::

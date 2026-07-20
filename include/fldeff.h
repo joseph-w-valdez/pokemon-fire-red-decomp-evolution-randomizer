@@ -11,6 +11,7 @@ extern struct MapPosition gPlayerFacingPosition;
 
 bool8 CheckObjectGraphicsInFrontOfPlayer(u8 graphicsId);
 u8 CreateFieldEffectShowMon(void);
+u8 CreateFieldEffectNoShowMon(void);
 
 // flash
 u8 MapTransitionIsExit(u8 lightLevel, u8 mapType);

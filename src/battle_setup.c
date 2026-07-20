@@ -18,6 +18,7 @@
 #include "event_scripts.h"
 #include "fldeff.h"
 #include "fieldmap.h"
+#include "nuzlocke.h"
 #include "field_control_avatar.h"
 #include "field_player_avatar.h"
 #include "field_screen_effect.h"
@@ -236,6 +237,7 @@ static bool8 CheckSilphScopeInPokemonTower(u16 mapGroup, u16 mapNum)
 
 void StartWildBattle(void)
 {
+    Nuzlocke_OnWildBattleStart();
     if (GetSafariZoneFlag())
         DoSafariBattle();
     else if (CheckSilphScopeInPokemonTower(gSaveBlock1Ptr->location.mapGroup, gSaveBlock1Ptr->location.mapNum))
@@ -258,6 +260,7 @@ static void DoStandardWildBattle(void)
 
 void StartRoamerBattle(void)
 {
+    Nuzlocke_OnWildBattleStart();
     LockPlayerFieldControls();
     FreezeObjectEvents();
     StopPlayerAvatar();
@@ -309,6 +312,7 @@ void StartOldManTutorialBattle(void)
 
 void StartScriptedWildBattle(void)
 {
+    Nuzlocke_OnWildBattleStart();
     LockPlayerFieldControls();
     gMain.savedCallback = CB2_EndScriptedWildBattle;
     gBattleTypeFlags = BATTLE_TYPE_WILD_SCRIPTED;
@@ -319,6 +323,7 @@ void StartScriptedWildBattle(void)
 
 void StartMarowakBattle(void)
 {
+    Nuzlocke_OnWildBattleStart();
     LockPlayerFieldControls();
     gMain.savedCallback = CB2_EndMarowakBattle;
     if (CheckBagHasItem(ITEM_SILPH_SCOPE, 1))
@@ -338,6 +343,7 @@ void StartMarowakBattle(void)
 
 void StartSouthernIslandBattle(void)
 {
+    Nuzlocke_OnWildBattleStart();
     LockPlayerFieldControls();
     gMain.savedCallback = CB2_EndScriptedWildBattle;
     gBattleTypeFlags = BATTLE_TYPE_LEGENDARY;
@@ -350,6 +356,7 @@ void StartLegendaryBattle(void)
 {
     u16 species;
     
+    Nuzlocke_OnWildBattleStart();
     LockPlayerFieldControls();
     gMain.savedCallback = CB2_EndScriptedWildBattle;
     gBattleTypeFlags = BATTLE_TYPE_LEGENDARY | BATTLE_TYPE_LEGENDARY_FRLG;

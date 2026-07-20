@@ -2743,7 +2743,7 @@ void SpriteCB_FreePlayerSpriteLoadMonSprite(struct Sprite *sprite)
 
 static void Task_StartSendOutAnim(u8 taskId)
 {
-    if (gTasks[taskId].data[1] < 31)
+    if (gTasks[taskId].data[1] < 10) // was 31; ~3x faster delay before ball throw
     {
         ++gTasks[taskId].data[1];
     }

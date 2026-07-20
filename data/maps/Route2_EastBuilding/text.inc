@@ -20,11 +20,19 @@ Route2_EastBuilding_Text_ReceivedHM05FromAide::
     .string "{PLAYER} received HM05\n"
     .string "from the AIDE.$"
 
+Route2_EastBuilding_Text_AlsoTakeRingLight::
+    .string "PROF. OAK also wanted you to have\n"
+    .string "this RING LIGHT.$"
+
+Route2_EastBuilding_Text_ReceivedRingLightFromAide::
+    .string "{PLAYER} received the RING LIGHT\n"
+    .string "from the AIDE.$"
+
 Route2_EastBuilding_Text_ExplainHM05::
-    .string "HM05 contains the hidden move\n"
-    .string "FLASH.\p"
-    .string "FLASH lights up even the darkest\n"
-    .string "of caves and dungeons.$"
+    .string "With the BOULDER BADGE, use the\n"
+    .string "RING LIGHT from your BAG.\p"
+    .string "It lights up even the darkest\n"
+    .string "caves and dungeons.$"
 
 Route2_EastBuilding_Text_CanGetThroughRockTunnel::
     .string "Once a POKéMON learns FLASH, you\n"

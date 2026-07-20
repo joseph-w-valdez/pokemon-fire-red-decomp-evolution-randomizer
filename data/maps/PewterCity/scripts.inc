@@ -5,7 +5,18 @@ PewterCity_MapScripts::
 PewterCity_OnTransition::
 	setworldmapflag FLAG_WORLD_MAP_PEWTER_CITY
 	setvar VAR_MAP_SCENE_PEWTER_CITY_MUSEUM_1F, 0
+	call PewterCity_EventScript_TryRestoreAllExpShareAide
 	end
+
+@ If Brock is beaten but the ALL EXP SHARE aide was skipped (e.g. old broken var=2),
+@ put the aide back until the player receives the item.
+PewterCity_EventScript_TryRestoreAllExpShareAide::
+	goto_if_unset FLAG_BADGE01_GET, EventScript_Return
+	checkitem ITEM_ALL_EXP_SHARE, 1
+	goto_if_eq VAR_RESULT, TRUE, EventScript_Return
+	setvar VAR_MAP_SCENE_PEWTER_CITY, 1
+	clearflag FLAG_HIDE_PEWTER_CITY_RUNNING_SHOES_GUY
+	return
 
 @ Impossible to speak to this NPC from a facing dir != DIR_EAST normally, so they arent checked
 @ Additionally, no movement script exists for facing DIR_SOUTH, which would necessitate walking out of bounds
@@ -698,14 +709,10 @@ PewterCity_EventScript_AideGiveRunningShoes::
 	call_if_eq VAR_TEMP_1, 3, PewterCity_EventScript_AideApproachPlayer3
 	msgbox PewterCity_Text_AskedToDeliverThis
 	textcolor NPC_TEXT_COLOR_NEUTRAL
-	playfanfare MUS_OBTAIN_KEY_ITEM
-	message PewterCity_Text_ReceivedRunningShoesFromAide
-	waitmessage
-	waitfanfare
-	msgbox PewterCity_Text_SwitchedShoesWithRunningShoes
+	giveitem_msg PewterCity_Text_ReceivedAllExpShareFromAide, ITEM_ALL_EXP_SHARE, 1, MUS_OBTAIN_KEY_ITEM
 	special DisableMsgBoxWalkaway
 	signmsg
-	msgbox PewterCity_Text_ExplainRunningShoes
+	msgbox PewterCity_Text_ExplainAllExpShare
 	normalmsg
 	call EventScript_RestorePrevTextColor
 	msgbox PewterCity_Text_MustBeGoingBackToLab
@@ -716,10 +723,9 @@ PewterCity_EventScript_AideGiveRunningShoes::
 	call_if_eq VAR_TEMP_1, 3, PewterCity_EventScript_AideExit3
 	delay 30
 	textcolor NPC_TEXT_COLOR_NEUTRAL
-	msgbox PewterCity_Text_RunningShoesLetterFromMom
+	msgbox PewterCity_Text_AllExpShareLetterFromOak
 	closemessage
 	removeobject LOCALID_PEWTER_AIDE
-	setflag FLAG_SYS_B_DASH
 	setvar VAR_MAP_SCENE_PEWTER_CITY, 2
 	return
 

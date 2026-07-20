@@ -287,6 +287,10 @@ static EWRAM_DATA struct MapIcons * sMapIcons = NULL;
 static EWRAM_DATA struct RegionMapGpuRegs * sRegionMapGpuRegs[3] = {};
 static EWRAM_DATA struct FlyMap * sFlyMap = NULL;
 
+// When set, the fly map treats every fly destination as already visited,
+// letting the Waymo key item fly anywhere without badges or prior visits.
+bool8 gWaymoFlyMode;
+
 static void InitRegionMapType(void);
 static void CB2_OpenRegionMap(void);
 static bool8 LoadRegionMapGfx(void);
@@ -2951,6 +2955,12 @@ static u16 GetDungeonMapsecUnderCursor(void)
 
 static u8 GetMapsecType(u8 mapsec)
 {
+    if (gWaymoFlyMode && mapsec >= KANTO_MAPSEC_START)
+    {
+        u16 idx = mapsec - KANTO_MAPSEC_START;
+        if (idx < NELEMS(sMapFlyDestinations) && sMapFlyDestinations[idx][2] != HEAL_LOCATION_NONE)
+            return MAPSECTYPE_VISITED;
+    }
     switch (mapsec)
     {
     case MAPSEC_PALLET_TOWN:
@@ -4013,10 +4023,11 @@ static void FreeFlyMap(u8 taskId)
     FreeRegionMapForFlyMap();
     DestroyTask(taskId);
     FreeAllWindowBuffers();
-    if (sFlyMap->selectedDestination == TRUE)
+    if (sFlyMap->selectedDestination == TRUE || gWaymoFlyMode)
         SetMainCallback2(CB2_ReturnToField);
     else
         SetMainCallback2(CB2_ReturnToPartyMenuFromFlyMap);
+    gWaymoFlyMode = FALSE;
     FREE_IF_NOT_NULL(sFlyMap);
 }
 

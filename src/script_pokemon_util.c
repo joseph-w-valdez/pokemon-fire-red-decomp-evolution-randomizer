@@ -4,12 +4,14 @@
 #include "daycare.h"
 #include "event_data.h"
 #include "load_save.h"
+#include "nuzlocke.h"
 #include "overworld.h"
 #include "party_menu.h"
 #include "pokedex.h"
 #include "script_pokemon_util.h"
 #include "constants/items.h"
 #include "constants/pokemon.h"
+#include "constants/species.h"
 
 static void CB2_ReturnFromChooseHalfParty(void);
 static void CB2_ReturnFromChooseBattleTowerParty(void);
@@ -19,11 +21,30 @@ void HealPlayerParty(void)
     u8 i, j;
     u8 ppBonuses;
     u8 arg[4];
+    u8 livingCount = 0;
+    u16 maxHP;
+
+    if (IsNuzlockeActive())
+    {
+        for (i = 0; i < gPlayerPartyCount; i++)
+        {
+            if (GetMonData(&gPlayerParty[i], MON_DATA_SPECIES) != SPECIES_NONE
+             && GetMonData(&gPlayerParty[i], MON_DATA_HP) != 0)
+                livingCount++;
+        }
+    }
 
     // restore HP.
     for(i = 0; i < gPlayerPartyCount; i++)
     {
-        u16 maxHP = GetMonData(&gPlayerParty[i], MON_DATA_MAX_HP);
+        // Nuzlocke: leave fainted mons at 0 HP unless the whole party is dead (avoids softlock).
+        if (IsNuzlockeActive()
+         && livingCount != 0
+         && GetMonData(&gPlayerParty[i], MON_DATA_SPECIES) != SPECIES_NONE
+         && GetMonData(&gPlayerParty[i], MON_DATA_HP) == 0)
+            continue;
+
+        maxHP = GetMonData(&gPlayerParty[i], MON_DATA_MAX_HP);
         arg[0] = maxHP;
         arg[1] = maxHP >> 8;
         SetMonData(&gPlayerParty[i], MON_DATA_HP, arg);

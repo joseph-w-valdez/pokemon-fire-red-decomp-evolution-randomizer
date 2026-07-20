@@ -8,21 +8,25 @@
 #include "event_data.h"
 #include "field_effect.h"
 #include "field_fadetransition.h"
+#include "field_control_avatar.h"
 #include "event_object_movement.h"
 #include "field_player_avatar.h"
 #include "field_specials.h"
 #include "field_weather.h"
 #include "fieldmap.h"
+#include "fldeff.h"
 #include "item.h"
 #include "item_menu.h"
 #include "item_use.h"
 #include "itemfinder.h"
+#include "nuzlocke.h"
 #include "mail.h"
 #include "event_object_lock.h"
 #include "metatile_behavior.h"
 #include "new_menu_helpers.h"
 #include "overworld.h"
 #include "party_menu.h"
+#include "pokemon.h"
 #include "quest_log.h"
 #include "region_map.h"
 #include "script.h"
@@ -38,8 +42,11 @@
 #include "constants/moves.h"
 #include "constants/songs.h"
 #include "constants/field_weather.h"
+#include "constants/field_effects.h"
+#include "constants/flags.h"
 
 static EWRAM_DATA void (*sItemUseOnFieldCB)(u8 taskId) = NULL;
+static EWRAM_DATA void (*sHmKeyItemFieldCB)(void) = NULL;
 
 static void FieldCB_FadeInFromBlack(void);
 static void Task_WaitFadeIn_CallItemUseOnFieldCB(u8 taskId);
@@ -65,6 +72,18 @@ static void Task_UsedBlackWhiteFlute(u8 taskId);
 static void ItemUseOnFieldCB_EscapeRope(u8 taskId);
 static void UseTownMapFromBag(void);
 static void Task_UseTownMapFromField(u8 taskId);
+static void Task_UseWaymoFromField(u8 taskId);
+static void ItemUseOnFieldCB_RunHmKeyItem(u8 taskId);
+static bool8 PrepareHmKeyItemUse(bool8 (*setupFunc)(void));
+static void TryUseHmKeyItem(u8 taskId, bool8 (*setupFunc)(void));
+static void TryUseHmKeyItemWithBadge(u8 taskId, bool8 (*setupFunc)(void), u16 badgeFlag);
+static void FieldCallback_SurfKeyItem(void);
+static void FieldCallback_WaterfallKeyItem(void);
+static void FieldCallback_DiveKeyItem(void);
+static bool8 SetUpKeyItem_Surf(void);
+static bool8 SetUpKeyItem_Waterfall(void);
+static bool8 SetUpKeyItem_Dive(void);
+static u8 GetFirstUsablePartySlot(void);
 static void UseFameCheckerFromBag(void);
 static void Task_UseFameCheckerFromField(u8 taskId);
 static void Task_BattleUse_StatBooster_DelayAndPrint(u8 taskId);
@@ -191,6 +210,11 @@ static void DisplayItemMessageInCurrentContext(u8 taskId, bool8 inField, u8 font
 static void PrintNotTheTimeToUseThat(u8 taskId, bool8 inField)
 {
     DisplayItemMessageInCurrentContext(taskId, inField, FONT_MALE, gText_OakForbidsUseOfItemHere);
+}
+
+static void PrintNeedNewBadge(u8 taskId, bool8 inField)
+{
+    DisplayItemMessageInCurrentContext(taskId, inField, FONT_MALE, gText_CantUseUntilNewBadge);
 }
 
 static void Task_ItemUse_CloseMessageBoxAndReturnToField(u8 taskId)
@@ -343,6 +367,28 @@ void FieldUseFunc_CoinCase(u8 taskId)
         DisplayItemMessageInBag(taskId, FONT_NORMAL, gStringVar4, Task_ReturnToBagFromContextMenu);
     else
         DisplayItemMessageOnField(taskId, FONT_NORMAL, gStringVar4, Task_ItemUse_CloseMessageBoxAndReturnToField);
+}
+
+void FieldUseFunc_AllExpShare(u8 taskId)
+{
+    const u8 *msg;
+
+    if (FlagGet(FLAG_SYS_ALL_EXP_SHARE))
+    {
+        FlagClear(FLAG_SYS_ALL_EXP_SHARE);
+        msg = gText_AllExpShareOff;
+    }
+    else
+    {
+        FlagSet(FLAG_SYS_ALL_EXP_SHARE);
+        msg = gText_AllExpShareOn;
+    }
+
+    ItemUse_SetQuestLogEvent(QL_EVENT_USED_ITEM, NULL, gSpecialVar_ItemId, 0xFFFF);
+    if (gTasks[taskId].data[3] == 0)
+        DisplayItemMessageInBag(taskId, FONT_NORMAL, msg, Task_ReturnToBagFromContextMenu);
+    else
+        DisplayItemMessageOnField(taskId, FONT_NORMAL, msg, Task_ItemUse_CloseMessageBoxAndReturnToField);
 }
 
 void FieldUseFunc_PowderJar(u8 taskId)
@@ -677,6 +723,181 @@ static void Task_UseTownMapFromField(u8 taskId)
     }
 }
 
+void FieldUseFunc_Waymo(u8 taskId)
+{
+    if (!FlagGet(FLAG_BADGE03_GET))
+    {
+        PrintNeedNewBadge(taskId, gTasks[taskId].data[3]);
+        return;
+    }
+    gWaymoFlyMode = TRUE;
+    if (gTasks[taskId].data[3] == 0)
+    {
+        ItemMenu_SetExitCallback(CB2_OpenFlyMap);
+        ItemMenu_StartFadeToExitCallback(taskId);
+    }
+    else
+    {
+        FadeScreen(FADE_TO_BLACK, 0);
+        gTasks[taskId].func = Task_UseWaymoFromField;
+    }
+}
+
+static void Task_UseWaymoFromField(u8 taskId)
+{
+    if (!gPaletteFade.active)
+    {
+        CleanupOverworldWindowsAndTilemaps();
+        SetMainCallback2(CB2_OpenFlyMap);
+        DestroyTask(taskId);
+    }
+}
+
+static u8 GetFirstUsablePartySlot(void)
+{
+    u8 i;
+
+    for (i = 0; i < PARTY_SIZE; i++)
+    {
+        if (GetMonData(&gPlayerParty[i], MON_DATA_SPECIES, NULL) != SPECIES_NONE
+         && !GetMonData(&gPlayerParty[i], MON_DATA_IS_EGG, NULL))
+            return i;
+    }
+    return 0;
+}
+
+static void ItemUseOnFieldCB_RunHmKeyItem(u8 taskId)
+{
+    if (sHmKeyItemFieldCB != NULL)
+        sHmKeyItemFieldCB();
+    sHmKeyItemFieldCB = NULL;
+    DestroyTask(taskId);
+}
+
+static bool8 PrepareHmKeyItemUse(bool8 (*setupFunc)(void))
+{
+    gPartyMenu.slotId = GetFirstUsablePartySlot();
+    if (GetMonData(&gPlayerParty[gPartyMenu.slotId], MON_DATA_SPECIES, NULL) == SPECIES_NONE)
+        return FALSE;
+    if (!setupFunc())
+        return FALSE;
+    sHmKeyItemFieldCB = gPostMenuFieldCallback;
+    gPostMenuFieldCallback = NULL;
+    gFieldCallback2 = NULL;
+    return sHmKeyItemFieldCB != NULL;
+}
+
+static void TryUseHmKeyItem(u8 taskId, bool8 (*setupFunc)(void))
+{
+    if (PrepareHmKeyItemUse(setupFunc))
+    {
+        sItemUseOnFieldCB = ItemUseOnFieldCB_RunHmKeyItem;
+        SetUpItemUseOnFieldCallback(taskId);
+    }
+    else
+    {
+        PrintNotTheTimeToUseThat(taskId, gTasks[taskId].data[3]);
+    }
+}
+
+static void TryUseHmKeyItemWithBadge(u8 taskId, bool8 (*setupFunc)(void), u16 badgeFlag)
+{
+    if (!FlagGet(badgeFlag))
+        PrintNeedNewBadge(taskId, gTasks[taskId].data[3]);
+    else
+        TryUseHmKeyItem(taskId, setupFunc);
+}
+
+void FieldUseFunc_Edgelord(u8 taskId)
+{
+    TryUseHmKeyItemWithBadge(taskId, SetUpFieldMove_Cut, FLAG_BADGE02_GET);
+}
+
+void FieldUseFunc_AnchorArms(u8 taskId)
+{
+    TryUseHmKeyItemWithBadge(taskId, SetUpFieldMove_Strength, FLAG_BADGE04_GET);
+}
+
+void FieldUseFunc_Geocide(u8 taskId)
+{
+    TryUseHmKeyItemWithBadge(taskId, SetUpFieldMove_RockSmash, FLAG_BADGE06_GET);
+}
+
+static bool8 SetUpKeyItem_Surf(void)
+{
+    s16 x, y;
+
+    GetXYCoordsOneStepInFrontOfPlayer(&x, &y);
+    if (TestPlayerAvatarFlags(PLAYER_AVATAR_FLAG_SURFING))
+        return FALSE;
+    if (MetatileBehavior_IsFastWater(MapGridGetMetatileBehaviorAt(x, y)) == TRUE)
+        return FALSE;
+    if (IsPlayerFacingSurfableFishableWater() != TRUE)
+        return FALSE;
+    gPostMenuFieldCallback = FieldCallback_SurfKeyItem;
+    return TRUE;
+}
+
+static void FieldCallback_SurfKeyItem(void)
+{
+    gFieldEffectArguments[0] = GetCursorSelectionMonId();
+    FieldEffectStart(FLDEFF_USE_SURF);
+}
+
+void FieldUseFunc_PoolNoodle(u8 taskId)
+{
+    TryUseHmKeyItemWithBadge(taskId, SetUpKeyItem_Surf, FLAG_BADGE05_GET);
+}
+
+static bool8 SetUpKeyItem_Waterfall(void)
+{
+    s16 x, y;
+
+    GetXYCoordsOneStepInFrontOfPlayer(&x, &y);
+    if (MetatileBehavior_IsWaterfall(MapGridGetMetatileBehaviorAt(x, y)) != TRUE)
+        return FALSE;
+    if (IsPlayerSurfingNorth() != TRUE)
+        return FALSE;
+    gPostMenuFieldCallback = FieldCallback_WaterfallKeyItem;
+    return TRUE;
+}
+
+static void FieldCallback_WaterfallKeyItem(void)
+{
+    gFieldEffectArguments[0] = GetCursorSelectionMonId();
+    FieldEffectStart(FLDEFF_USE_WATERFALL);
+}
+
+void FieldUseFunc_FishLadder(u8 taskId)
+{
+    TryUseHmKeyItemWithBadge(taskId, SetUpKeyItem_Waterfall, FLAG_BADGE07_GET);
+}
+
+static bool8 SetUpKeyItem_Dive(void)
+{
+    if (TrySetDiveWarp() == 0)
+        return FALSE;
+    gPostMenuFieldCallback = FieldCallback_DiveKeyItem;
+    return TRUE;
+}
+
+static void FieldCallback_DiveKeyItem(void)
+{
+    gFieldEffectArguments[0] = GetCursorSelectionMonId();
+    gFieldEffectArguments[1] = 1;
+    FieldEffectStart(FLDEFF_USE_DIVE);
+}
+
+void FieldUseFunc_Titan(u8 taskId)
+{
+    TryUseHmKeyItem(taskId, SetUpKeyItem_Dive);
+}
+
+void FieldUseFunc_RingLight(u8 taskId)
+{
+    TryUseHmKeyItemWithBadge(taskId, SetUpFieldMove_Flash, FLAG_BADGE01_GET);
+}
+
 void FieldUseFunc_FameChecker(u8 taskId)
 {
     ItemUse_SetQuestLogEvent(QL_EVENT_USED_ITEM, NULL, gSpecialVar_ItemId, 0xFFFF);
@@ -711,22 +932,8 @@ static void Task_UseFameCheckerFromField(u8 taskId)
 
 void FieldUseFunc_VsSeeker(u8 taskId)
 {
-    if ((gMapHeader.mapType != MAP_TYPE_ROUTE
-      && gMapHeader.mapType != MAP_TYPE_TOWN
-      && gMapHeader.mapType != MAP_TYPE_CITY)
-     || (gSaveBlock1Ptr->location.mapGroup == MAP_GROUP(MAP_VIRIDIAN_FOREST)
-      && (gSaveBlock1Ptr->location.mapNum == MAP_NUM(MAP_VIRIDIAN_FOREST)
-       || gSaveBlock1Ptr->location.mapNum == MAP_NUM(MAP_MT_EMBER_EXTERIOR)
-       || gSaveBlock1Ptr->location.mapNum == MAP_NUM(MAP_THREE_ISLAND_BERRY_FOREST)
-       || gSaveBlock1Ptr->location.mapNum == MAP_NUM(MAP_SIX_ISLAND_PATTERN_BUSH))))
-    {
-        PrintNotTheTimeToUseThat(taskId, gTasks[taskId].data[3]);
-    }
-    else
-    {
-        sItemUseOnFieldCB = Task_VsSeeker_0;
-        SetUpItemUseOnFieldCallback(taskId);
-    }
+    sItemUseOnFieldCB = Task_VsSeeker_0;
+    SetUpItemUseOnFieldCallback(taskId);
 }
 
 void Task_ItemUse_CloseMessageBoxAndReturnToField_VsSeeker(u8 taskId)
@@ -736,6 +943,11 @@ void Task_ItemUse_CloseMessageBoxAndReturnToField_VsSeeker(u8 taskId)
 
 void BattleUseFunc_PokeBallEtc(u8 taskId)
 {
+    if (!Nuzlocke_CanThrowBall())
+    {
+        DisplayItemMessageInBag(taskId, FONT_NORMAL, gText_NuzlockeCantCatch, Task_ReturnToBagFromContextMenu);
+        return;
+    }
     if (!IsPlayerPartyAndPokemonStorageFull())
     {
         RemoveBagItem(gSpecialVar_ItemId, 1);

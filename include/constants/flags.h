@@ -596,7 +596,7 @@
 #define FLAG_GOT_HM05                                    0x23B
 #define FLAG_RESCUED_MR_FUJI                             0x23C
 #define FLAG_GOT_POKE_FLUTE                              0x23D
-#define FLAG_0x23E                                       0x23E
+#define FLAG_GOT_TITAN                                   0x23E
 #define FLAG_GOT_TM28_FROM_ROCKET                        0x23F
 #define FLAG_GOT_OLD_ROD                                 0x240
 #define FLAG_GOT_BIKE_VOUCHER                            0x241
@@ -654,8 +654,10 @@
 #define FLAG_DID_TANGENY_TRADE                           0x275
 #define FLAG_DID_SEELOR_TRADE                            0x276
 #define FLAG_0x277                                       0x277
+#define FLAG_TALKED_GAME_CORNER_QUITTER                  FLAG_0x277
 #define FLAG_GOT_HITMON_FROM_DOJO                        0x278
 #define FLAG_0x279                                       0x279
+#define FLAG_TALKED_GAME_CORNER_PLANT                    FLAG_0x279
 #define FLAG_SILPH_2F_DOOR_1                             0x27A
 #define FLAG_SILPH_2F_DOOR_2                             0x27B
 #define FLAG_SILPH_3F_DOOR_1                             0x27C
@@ -687,7 +689,7 @@
 #define FLAG_GOT_TM16_FROM_THIRSTY_GIRL                  0x296
 #define FLAG_GOT_TM03_FROM_MISTY                         0x297
 #define FLAG_GOT_TM26_FROM_GIOVANNI                      0x298
-#define FLAG_0x299                                       0x299
+#define FLAG_GOT_SHINY_CHARM                             0x299
 #define FLAG_GOT_TM04_FROM_SABRINA                       0x29A
 #define FLAG_GOT_FAME_CHECKER                            0x29B
 #define FLAG_GOT_RECORD_SETTING_MAGIKARP                 0x29C
@@ -1222,8 +1224,8 @@
 #define FLAG_HIDDEN_ITEM_SSANNE_EXTERIOR_LAVA_COOKIE                       (FLAG_HIDDEN_ITEMS_START + 190)
 
 // Unused hidden item flags
-#define FLAG_UNUSED_0x4A7               0x4A7 // Unused Flag
-#define FLAG_UNUSED_0x4A8               0x4A8 // Unused Flag
+#define FLAG_HIDE_VIRIDIAN_CITY_TUTORIAL_MAN    0x4A7 // Hide roadblock/tutorial old man after Oak's Parcel
+#define FLAG_SAFE_FOLLOWER_MOVEMENT             0x4A8 // Hide follower during scripted movement
 #define FLAG_UNUSED_0x4A9               0x4A9 // Unused Flag
 #define FLAG_UNUSED_0x4AA               0x4AA // Unused Flag
 #define FLAG_UNUSED_0x4AB               0x4AB // Unused Flag
@@ -1373,8 +1375,8 @@
 
 #define FLAG_SYS_POKEMON_GET                                        (SYS_FLAGS + 0x28)
 #define FLAG_SYS_POKEDEX_GET                                        (SYS_FLAGS + 0x29)
-#define FLAG_0x82A                                                  (SYS_FLAGS + 0x2A)
-#define FLAG_0x82B                                                  (SYS_FLAGS + 0x2B)
+#define FLAG_SYS_NUZLOCKE                                           (SYS_FLAGS + 0x2A)
+#define FLAG_SYS_ALL_EXP_SHARE                                      (SYS_FLAGS + 0x2B) // was FLAG_0x82B
 #define FLAG_SYS_GAME_CLEAR                                         (SYS_FLAGS + 0x2C)
 #define FLAG_SYS_SET_TRAINER_CARD_PROFILE                           (SYS_FLAGS + 0x2D)
 #define FLAG_0x82E                                                  (SYS_FLAGS + 0x2E)

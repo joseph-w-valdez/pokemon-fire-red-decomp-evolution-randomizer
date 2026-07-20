@@ -599,34 +599,34 @@ static const union AnimCmd sAnim_ShakeHeadOrWalkInPlace[] = {
 };
 
 static const union AnimCmd sAnim_RunSouth[] = {
-    ANIMCMD_FRAME(9, 5),
-    ANIMCMD_FRAME(10, 3),
-    ANIMCMD_FRAME(9, 5),
-    ANIMCMD_FRAME(11, 3),
+    ANIMCMD_FRAME(9, 2),
+    ANIMCMD_FRAME(10, 2),
+    ANIMCMD_FRAME(9, 2),
+    ANIMCMD_FRAME(11, 2),
     ANIMCMD_JUMP(0),
 };
 
 static const union AnimCmd sAnim_RunNorth[] = {
-    ANIMCMD_FRAME(12, 5),
-    ANIMCMD_FRAME(13, 3),
-    ANIMCMD_FRAME(12, 5),
-    ANIMCMD_FRAME(14, 3),
+    ANIMCMD_FRAME(12, 2),
+    ANIMCMD_FRAME(13, 2),
+    ANIMCMD_FRAME(12, 2),
+    ANIMCMD_FRAME(14, 2),
     ANIMCMD_JUMP(0),
 };
 
 static const union AnimCmd sAnim_RunWest[] = {
-    ANIMCMD_FRAME(15, 5),
-    ANIMCMD_FRAME(16, 3),
-    ANIMCMD_FRAME(15, 5),
-    ANIMCMD_FRAME(17, 3),
+    ANIMCMD_FRAME(15, 2),
+    ANIMCMD_FRAME(16, 2),
+    ANIMCMD_FRAME(15, 2),
+    ANIMCMD_FRAME(17, 2),
     ANIMCMD_JUMP(0),
 };
 
 static const union AnimCmd sAnim_RunEast[] = {
-    ANIMCMD_FRAME(15, 5, .hFlip = TRUE),
-    ANIMCMD_FRAME(16, 3, .hFlip = TRUE),
-    ANIMCMD_FRAME(15, 5, .hFlip = TRUE),
-    ANIMCMD_FRAME(17, 3, .hFlip = TRUE),
+    ANIMCMD_FRAME(15, 2, .hFlip = TRUE),
+    ANIMCMD_FRAME(16, 2, .hFlip = TRUE),
+    ANIMCMD_FRAME(15, 2, .hFlip = TRUE),
+    ANIMCMD_FRAME(17, 2, .hFlip = TRUE),
     ANIMCMD_JUMP(0),
 };
 
