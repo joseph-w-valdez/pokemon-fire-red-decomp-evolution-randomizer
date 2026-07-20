@@ -373,6 +373,7 @@ void FieldUseFunc_AllExpShare(u8 taskId)
 {
     const u8 *msg;
 
+#if RH_ALL_EXP_SHARE
     if (FlagGet(FLAG_SYS_ALL_EXP_SHARE))
     {
         FlagClear(FLAG_SYS_ALL_EXP_SHARE);
@@ -383,6 +384,9 @@ void FieldUseFunc_AllExpShare(u8 taskId)
         FlagSet(FLAG_SYS_ALL_EXP_SHARE);
         msg = gText_AllExpShareOn;
     }
+#else
+    msg = gText_AllExpShareOff;
+#endif
 
     ItemUse_SetQuestLogEvent(QL_EVENT_USED_ITEM, NULL, gSpecialVar_ItemId, 0xFFFF);
     if (gTasks[taskId].data[3] == 0)
@@ -789,6 +793,11 @@ static bool8 PrepareHmKeyItemUse(bool8 (*setupFunc)(void))
 
 static void TryUseHmKeyItem(u8 taskId, bool8 (*setupFunc)(void))
 {
+#if !RH_HM_KEY_ITEMS
+    (void)setupFunc;
+    PrintNotTheTimeToUseThat(taskId, gTasks[taskId].data[3]);
+    return;
+#endif
     if (PrepareHmKeyItemUse(setupFunc))
     {
         sItemUseOnFieldCB = ItemUseOnFieldCB_RunHmKeyItem;

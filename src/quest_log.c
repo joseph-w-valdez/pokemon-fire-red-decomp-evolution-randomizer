@@ -447,10 +447,35 @@ static bool8 TryRecordActionSequence(struct QuestLogAction * actions)
 
 void TryStartQuestLogPlayback(u8 taskId)
 {
-    // Skip "Previously on your quest…" and go straight into the save.
+#if RH_SKIP_QUEST_LOG_INTRO
     QL_EnableRecordingSteps();
     SetMainCallback2(CB2_ContinueSavedGame);
     DestroyTask(taskId);
+#else
+    {
+        u8 i;
+
+        QL_EnableRecordingSteps();
+        sNumScenes = 0;
+        for (i = 0; i < QUEST_LOG_SCENE_COUNT; i++)
+        {
+            if (gSaveBlock1Ptr->questLog[i].startType != 0)
+                sNumScenes++;
+        }
+
+        if (sNumScenes != 0)
+        {
+            gHelpSystemEnabled = FALSE;
+            Task_BeginQuestLogPlayback(taskId);
+            DestroyTask(taskId);
+        }
+        else
+        {
+            SetMainCallback2(CB2_ContinueSavedGame);
+            DestroyTask(taskId);
+        }
+    }
+#endif
 }
 
 static void Task_BeginQuestLogPlayback(u8 taskId)

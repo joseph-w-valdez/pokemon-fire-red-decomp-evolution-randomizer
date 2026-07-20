@@ -83,9 +83,11 @@ static void Task_OakSpeech_FadeOutRivalPic(u8);
 static void Task_OakSpeech_FadeInRivalPic(u8);
 static void Task_OakSpeech_AskRivalsName(u8);
 static void Task_OakSpeech_ReshowPlayersPic(u8);
+#if RH_NUZLOCKE
 static void Task_OakSpeech_AskNuzlocke(u8);
 static void Task_OakSpeech_ShowNuzlockeYesNo(u8);
 static void Task_OakSpeech_HandleNuzlockeInput(u8);
+#endif
 static void Task_OakSpeech_LetsGo(u8);
 static void Task_OakSpeech_FadeOutBGM(u8);
 static void Task_OakSpeech_SetUpExitAnimation(u8);
@@ -775,6 +777,7 @@ static void Task_NewGameScene(u8 taskId)
         BlendPalettes(PALETTES_ALL, 16, RGB_BLACK);
         break;
     case 10:
+#if RH_SKIP_CONTROLS_GUIDE
         // Skip the Controls Guide and Pikachu intro; go straight to Oak.
         SetGpuReg(REG_OFFSET_DISPCNT, DISPCNT_MODE_0 | DISPCNT_OBJ_1D_MAP | DISPCNT_OBJ_ON);
         ShowBg(0);
@@ -784,6 +787,17 @@ static void Task_NewGameScene(u8 taskId)
         gTasks[taskId].func = Task_OakSpeech_Init;
         gMain.state = 0;
         return;
+#else
+        BeginNormalPaletteFade(PALETTES_ALL, 0, 16, 0, RGB_BLACK);
+        SetGpuReg(REG_OFFSET_DISPCNT, DISPCNT_MODE_0 | DISPCNT_OBJ_1D_MAP | DISPCNT_OBJ_ON);
+        ShowBg(0);
+        ShowBg(1);
+        SetVBlankCallback(VBlankCB_NewGameScene);
+        PlayBGM(MUS_NEW_GAME_INSTRUCT);
+        gTasks[taskId].func = Task_ControlsGuide_HandleInput;
+        gMain.state = 0;
+        return;
+#endif
     }
 
     gMain.state++;
@@ -1581,11 +1595,16 @@ static void Task_OakSpeech_ReshowPlayersPic(u8 taskId)
             gSpriteCoordOffsetX = 0;
             ChangeBgX(2, 0, BG_COORD_SET);
             CreateFadeOutTask(taskId, 2);
+#if RH_NUZLOCKE
             gTasks[taskId].func = Task_OakSpeech_AskNuzlocke;
+#else
+            gTasks[taskId].func = Task_OakSpeech_LetsGo;
+#endif
         }
     }
 }
 
+#if RH_NUZLOCKE
 static void Task_OakSpeech_AskNuzlocke(u8 taskId)
 {
     if (gTasks[taskId].tTrainerPicFadeState != 0)
@@ -1632,6 +1651,7 @@ static void Task_OakSpeech_HandleNuzlockeInput(u8 taskId)
         break;
     }
 }
+#endif // RH_NUZLOCKE
 
 static void Task_OakSpeech_LetsGo(u8 taskId)
 {

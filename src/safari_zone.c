@@ -11,12 +11,18 @@ EWRAM_DATA u16 gSafariZoneStepCounter = 0;
 
 bool32 GetSafariZoneFlag(void)
 {
-    // Safari Zone uses normal wild battles — session mode permanently disabled.
+#if RH_SAFARI_NORMAL_BATTLES
     return FALSE;
+#else
+    return FlagGet(FLAG_SYS_SAFARI_MODE);
+#endif
 }
 
 void SetSafariZoneFlag(void)
 {
+#if !RH_SAFARI_NORMAL_BATTLES
+    FlagSet(FLAG_SYS_SAFARI_MODE);
+#endif
 }
 
 void ResetSafariZoneFlag(void)
@@ -26,7 +32,14 @@ void ResetSafariZoneFlag(void)
 
 void EnterSafariMode(void)
 {
-    // No-op: no balls, no step limit, no Safari battles.
+#if RH_SAFARI_NORMAL_BATTLES
+    // No-op: normal wild battles, no balls / step limit.
+#else
+    IncrementGameStat(GAME_STAT_ENTERED_SAFARI_ZONE);
+    SetSafariZoneFlag();
+    gNumSafariBalls = 30;
+    gSafariZoneStepCounter = 600;
+#endif
 }
 
 void ExitSafariMode(void)

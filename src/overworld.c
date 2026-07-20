@@ -343,7 +343,9 @@ static void Overworld_ResetStateAfterWhitingOut(void)
     FlagClear(FLAG_SYS_FLASH_ACTIVE);
     FlagClear(FLAG_SYS_QL_DEPARTED);
     VarSet(VAR_QL_ENTRANCE, 0);
+#if OW_FOLLOWERS_ENABLED
     FollowMe_TryRemoveFollowerOnWhiteOut();
+#endif
 }
 
 static void Overworld_ResetStateOnContinue(void)
@@ -1418,8 +1420,10 @@ static void DoCB1_Overworld(u16 newKeys, u16 heldKeys)
     }
     RunQuestLogCB();
 
+#if OW_FOLLOWERS_ENABLED
     if (PlayerHasFollower() && IsPlayerOnFoot() && walkrun_is_standing_still())
         ObjectEventSetHeldMovement(&gObjectEvents[GetFollowerObjectId()], GetFaceDirectionMovementAction(gObjectEvents[GetFollowerObjectId()].facingDirection));
+#endif
 }
 
 static void DoCB1_Overworld_QuestLogPlayback(void)
@@ -1956,8 +1960,10 @@ static bool32 ReturnToFieldLocal(u8 *state)
     case 2:
         InitViewGraphics();
         SetHelpContextForMap();
+#if OW_FOLLOWERS_ENABLED
         FollowMe_BindToSurbBlobOnReloadScreen();
         UpdatePokemonFollower();
+#endif
         (*state)++;
         break;
     case 3:
@@ -2153,8 +2159,10 @@ static void InitObjectEventsLocal(void)
     ResetInitialPlayerAvatarState();
     TrySpawnObjectEvents(0, 0);
     TryRunOnWarpIntoMapScript();
+#if OW_FOLLOWERS_ENABLED
     UpdatePokemonFollower();
     FollowMe_HandleSprite();
+#endif
 }
 
 static void ReloadObjectsAndRunReturnToFieldMapScript(void)

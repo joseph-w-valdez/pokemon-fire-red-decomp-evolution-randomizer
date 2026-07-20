@@ -8,7 +8,11 @@
 #include "trig.h"
 
 // Run the battle curtain intro this many times per frame (~3x faster).
-#define BATTLE_INTRO_SLIDE_SPEED 3
+#if RH_FAST_BATTLES
+#define BATTLE_INTRO_SLIDE_SPEED RH_BATTLE_INTRO_SLIDE_SPEED
+#else
+#define BATTLE_INTRO_SLIDE_SPEED 1
+#endif
 
 static EWRAM_DATA u16 sBgCnt = 0;
 

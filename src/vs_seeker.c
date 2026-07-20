@@ -662,8 +662,38 @@ void VsSeekerResetObjectMovementAfterChargeComplete(void)
 
 bool8 UpdateVsSeekerStepCounter(void)
 {
+#if RH_VS_SEEKER_QOL
     // Rematches no longer expire with steps, and the device needs no charge.
     return FALSE;
+#else
+    {
+        u8 x = 0;
+
+        if (CheckBagHasItem(ITEM_VS_SEEKER, 1) == TRUE)
+        {
+            if ((gSaveBlock1Ptr->trainerRematchStepCounter & 0xFF) < 100)
+                gSaveBlock1Ptr->trainerRematchStepCounter++;
+        }
+
+        if (FlagGet(FLAG_SYS_VS_SEEKER_CHARGING) == TRUE)
+        {
+            if (((gSaveBlock1Ptr->trainerRematchStepCounter >> 8) & 0xFF) < 100)
+            {
+                x = (((gSaveBlock1Ptr->trainerRematchStepCounter >> 8) & 0xFF) + 1);
+                gSaveBlock1Ptr->trainerRematchStepCounter = (gSaveBlock1Ptr->trainerRematchStepCounter & 0xFF) | (x << 8);
+            }
+            if (((gSaveBlock1Ptr->trainerRematchStepCounter >> 8) & 0xFF) == 100)
+            {
+                FlagClear(FLAG_SYS_VS_SEEKER_CHARGING);
+                VsSeekerResetChargingStepCounter();
+                ClearAllTrainerRematchStates();
+                return TRUE;
+            }
+        }
+
+        return FALSE;
+    }
+#endif
 }
 
 void MapResetTrainerRematches(u16 mapGroup, u16 mapNum)
@@ -827,10 +857,28 @@ static void Task_VsSeeker_3(u8 taskId)
 
 static u8 CanUseVsSeeker(void)
 {
+#if RH_VS_SEEKER_QOL
     if (GetRematchableTrainerLocalId() == NO_REMATCH_LOCALID)
         return VSSEEKER_NO_ONE_IN_RANGE;
     else
         return VSSEEKER_CAN_USE;
+#else
+    {
+        u8 vsSeekerChargeSteps = gSaveBlock1Ptr->trainerRematchStepCounter;
+        if (vsSeekerChargeSteps == 100)
+        {
+            if (GetRematchableTrainerLocalId() == NO_REMATCH_LOCALID)
+                return VSSEEKER_NO_ONE_IN_RANGE;
+            else
+                return VSSEEKER_CAN_USE;
+        }
+        else
+        {
+            ConvertIntToDecimalStringN(gStringVar1, 100 - vsSeekerChargeSteps, STR_CONV_MODE_LEFT_ALIGN, 3);
+            return VSSEEKER_NOT_CHARGED;
+        }
+    }
+#endif
 }
 
 static u8 GetVsSeekerResponseInArea(const struct RematchData * vsSeekerData)

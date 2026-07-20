@@ -3148,7 +3148,7 @@ static void Cmd_getexp(void)
 
             calculatedExp = gSpeciesInfo[gBattleMons[gBattlerFainted].species].expYield * gBattleMons[gBattlerFainted].level / 7;
 
-            if (FlagGet(FLAG_SYS_ALL_EXP_SHARE))
+            if (RH_ALL_EXP_SHARE && FlagGet(FLAG_SYS_ALL_EXP_SHARE))
             {
                 // Split total EXP evenly among all living, non-egg party mons.
                 viaSentIn = 0;
@@ -3223,7 +3223,7 @@ static void Cmd_getexp(void)
             else
                 holdEffect = ItemId_GetHoldEffect(item);
 
-            if (!FlagGet(FLAG_SYS_ALL_EXP_SHARE)
+            if (!(RH_ALL_EXP_SHARE && FlagGet(FLAG_SYS_ALL_EXP_SHARE))
              && holdEffect != HOLD_EFFECT_EXP_SHARE
              && !(gBattleStruct->sentInPokes & 1))
             {
@@ -3231,7 +3231,7 @@ static void Cmd_getexp(void)
                 gBattleScripting.getexpState = 5;
                 gBattleMoveDamage = 0; // used for exp
             }
-            else if (FlagGet(FLAG_SYS_ALL_EXP_SHARE) && !(gBattleStruct->sentInPokes & 1))
+            else if (RH_ALL_EXP_SHARE && FlagGet(FLAG_SYS_ALL_EXP_SHARE) && !(gBattleStruct->sentInPokes & 1))
             {
                 *(&gBattleStruct->sentInPokes) >>= 1;
                 gBattleScripting.getexpState = 5;
@@ -3261,7 +3261,7 @@ static void Cmd_getexp(void)
                     else
                         gBattleMoveDamage = 0;
 
-                    if (!FlagGet(FLAG_SYS_ALL_EXP_SHARE) && holdEffect == HOLD_EFFECT_EXP_SHARE)
+                    if (!(RH_ALL_EXP_SHARE && FlagGet(FLAG_SYS_ALL_EXP_SHARE)) && holdEffect == HOLD_EFFECT_EXP_SHARE)
                         gBattleMoveDamage += gExpShareExp;
                     if (holdEffect == HOLD_EFFECT_LUCKY_EGG)
                         gBattleMoveDamage = (gBattleMoveDamage * 150) / 100;
@@ -3343,7 +3343,9 @@ static void Cmd_getexp(void)
 
                 BattleScriptPushCursor();
                 gLeveledUpInBattle |= gBitTable[gBattleStruct->expGetterMonId];
+#if RH_RANDOM_EVOLUTION
                 EnqueueRandomLevelEvolution(gBattleStruct->expGetterMonId);
+#endif
                 gBattlescriptCurrInstr = BattleScript_LevelUp;
                 gBattleMoveDamage = (gBattleBufferB[gActiveBattler][2] | (gBattleBufferB[gActiveBattler][3] << 8));
                 AdjustFriendship(&gPlayerParty[gBattleStruct->expGetterMonId], FRIENDSHIP_EVENT_GROW_LEVEL);

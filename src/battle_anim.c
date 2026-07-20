@@ -20,7 +20,11 @@
 
 // Halve anim script delay commands (~2x). Visual tasks/sprites are
 // double-ticked in BattleMainCB2 while gAnimScriptActive.
-#define BATTLE_ANIM_SPEED 2
+#if RH_FAST_BATTLES
+#define BATTLE_ANIM_SPEED RH_BATTLE_ANIM_SPEED
+#else
+#define BATTLE_ANIM_SPEED 1
+#endif
 
 EWRAM_DATA static const u8 *sBattleAnimScriptPtr = NULL;
 EWRAM_DATA static const u8 *sBattleAnimScriptRetAddr = NULL;

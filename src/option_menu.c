@@ -131,7 +131,11 @@ static const struct BgTemplate sOptionMenuBgTemplates[] =
 };
 
 static const u16 sOptionMenuPalette[] = INCBIN_U16("graphics/misc/option_menu.gbapal");
+#if RH_FAST_TEXT_ONLY
 static const u16 sOptionMenuItemCounts[MENUITEM_COUNT] = {2, 2, 2, 2, 3, 10, 0};
+#else
+static const u16 sOptionMenuItemCounts[MENUITEM_COUNT] = {3, 2, 2, 2, 3, 10, 0};
+#endif
 
 static const u8 *const sOptionMenuItemsNames[MENUITEM_COUNT] =
 {
@@ -146,8 +150,14 @@ static const u8 *const sOptionMenuItemsNames[MENUITEM_COUNT] =
 
 static const u8 *const sTextSpeedOptions[] =
 {
+#if RH_FAST_TEXT_ONLY
     gText_TextSpeedSlow, // Fast
     gText_TextSpeedMid,  // Faster
+#else
+    gText_TextSpeedSlow,
+    gText_TextSpeedMid,
+    gText_TextSpeedFast
+#endif
 };
 
 static const u8 *const sBattleSceneOptions[] =
@@ -213,9 +223,11 @@ void CB2_OptionsMenuFromStartMenu(void)
     sOptionMenuPtr->option[MENUITEM_FRAMETYPE] = gSaveBlock2Ptr->optionsWindowFrameType;
 
     // Instant was removed; clamp it (and any invalid value) to Faster.
+#if RH_FAST_TEXT_ONLY
     if (sOptionMenuPtr->option[MENUITEM_TEXTSPEED] > OPTIONS_TEXT_SPEED_MID)
         sOptionMenuPtr->option[MENUITEM_TEXTSPEED] = OPTIONS_TEXT_SPEED_MID;
-    
+#endif
+
     for (i = 0; i < MENUITEM_COUNT - 1; i++)
     {
         if (sOptionMenuPtr->option[i] > (sOptionMenuItemCounts[i]) - 1)
