@@ -14,6 +14,7 @@ For versioned release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Battles & Pokémon
 - Random evolution on level-up (battle / Rare Candy): transforms into a random different species, then offers one random move from the new species’ learnset
+- Trade evolution random overwrite is gated behind `RH_RANDOM_EVOLUTION` (vanilla trade target kept when off)
 - Only **one** random evolution queued per party mon per battle (even if they level multiple times)
 - Nuzlocke mode toggle at the start of a new game (Oak yes/no)
 
@@ -28,6 +29,7 @@ For versioned release notes, see [CHANGELOG.md](CHANGELOG.md).
 - HMs are forgettable
 - Field moves available as key items (e.g. WAYMO and related HM key items)
 - HM08 Dive obtainable (Celadon Hotel)
+- HM field-move “show mon” anim skipped when `RH_HM_KEY_ITEMS` (Cut / Flash / Strength / Rock Smash)
 
 ### QoL / systems
 - Text speed options: Fast (8) and Faster (2) only (Instant removed)
@@ -36,9 +38,10 @@ For versioned release notes, see [CHANGELOG.md](CHANGELOG.md).
 - ALL EXP SHARE given by Pewter Oak’s Aide after Brock (not via new-game shoes)
 - Cerulean Pokémon Center: Gentleman infects the lead with Pokérus when talked to; Lass gives the Shiny Charm (3× shiny odds)
 - Oak National Dex completion text redirects players to Cerulean for those rewards
+- Fast battles (`RH_FAST_BATTLES`): anim/intro/transition speedups plus Pokéball send-out tunables (`RH_POKEBALL_BOUNCE_DELTA`, `RH_POKEBALL_ARC_FRAMES`, `RH_POKEBALL_STAGGER_FRAMES`, `RH_POKEBALL_RELEASE_FRAMES`, `RH_POKEBALL_DELAY_FRAMES`, `RH_POKEBALL_HEALTHBOX_TICKS`, `RH_POKEBALL_CRY_FRAMES_A` / `_B`)
 
 ### Story / map fixes
-- Viridian roadblock old man is present before Oak’s Parcel and is removed after delivery (catch tutorial disabled — he does not stay for the Teachy TV demo)
+- `RH_SKIP_CATCH_TUTORIAL` (default TRUE): Viridian roadblock old man is present before Oak’s Parcel and is removed after delivery; Teachy TV is granted at new game. Set FALSE for vanilla catch tutorial + no auto Teachy TV.
 - Pewter aide spawn fixed so ALL EXP SHARE guy appears correctly after Brock
 
 ### Followers (code present, off by default)

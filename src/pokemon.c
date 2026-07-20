@@ -5851,6 +5851,26 @@ u16 GetRandomValidSpecies(u16 excludeSpecies)
     return species;
 }
 
+static u8 TryAddMoveCandidate(u16 move, u16 *candidates, u8 numCandidates, const u16 *knownMoves)
+{
+    u8 j;
+
+    if (move == MOVE_NONE)
+        return numCandidates;
+    for (j = 0; j < MAX_MON_MOVES; j++)
+    {
+        if (move == knownMoves[j])
+            return numCandidates;
+    }
+    for (j = 0; j < numCandidates; j++)
+    {
+        if (move == candidates[j])
+            return numCandidates;
+    }
+    candidates[numCandidates] = move;
+    return numCandidates + 1;
+}
+
 u16 GetRandomLevelUpMove(struct Pokemon *mon, u16 species)
 {
     u16 learnset[MAX_LEVEL_UP_MOVES];
@@ -5860,7 +5880,6 @@ u16 GetRandomLevelUpMove(struct Pokemon *mon, u16 species)
     u8 numLearnsetMoves;
     u8 numEggMoves = 0;
     u8 numCandidates = 0;
-    u8 j;
     u16 i;
     u16 index;
     u16 eggMoveIdx = 0;
@@ -5887,48 +5906,10 @@ u16 GetRandomLevelUpMove(struct Pokemon *mon, u16 species)
     }
 
     for (i = 0; i < numLearnsetMoves; i++)
-    {
-        move = learnset[i];
-        if (move == MOVE_NONE)
-            continue;
-        for (j = 0; j < MAX_MON_MOVES; j++)
-        {
-            if (move == knownMoves[j])
-                break;
-        }
-        if (j < MAX_MON_MOVES)
-            continue;
-        for (j = 0; j < numCandidates; j++)
-        {
-            if (move == candidates[j])
-                break;
-        }
-        if (j < numCandidates)
-            continue;
-        candidates[numCandidates++] = move;
-    }
+        numCandidates = TryAddMoveCandidate(learnset[i], candidates, numCandidates, knownMoves);
 
     for (i = 0; i < numEggMoves; i++)
-    {
-        move = eggMoves[i];
-        if (move == MOVE_NONE)
-            continue;
-        for (j = 0; j < MAX_MON_MOVES; j++)
-        {
-            if (move == knownMoves[j])
-                break;
-        }
-        if (j < MAX_MON_MOVES)
-            continue;
-        for (j = 0; j < numCandidates; j++)
-        {
-            if (move == candidates[j])
-                break;
-        }
-        if (j < numCandidates)
-            continue;
-        candidates[numCandidates++] = move;
-    }
+        numCandidates = TryAddMoveCandidate(eggMoves[i], candidates, numCandidates, knownMoves);
 
     for (i = 0; i < NUM_TECHNICAL_MACHINES + NUM_HIDDEN_MACHINES; i++)
     {
@@ -5942,23 +5923,7 @@ u16 GetRandomLevelUpMove(struct Pokemon *mon, u16 species)
             continue;
 
         move = ItemIdToBattleMoveId(ITEM_TM01 + i);
-        if (move == MOVE_NONE)
-            continue;
-        for (j = 0; j < MAX_MON_MOVES; j++)
-        {
-            if (move == knownMoves[j])
-                break;
-        }
-        if (j < MAX_MON_MOVES)
-            continue;
-        for (j = 0; j < numCandidates; j++)
-        {
-            if (move == candidates[j])
-                break;
-        }
-        if (j < numCandidates)
-            continue;
-        candidates[numCandidates++] = move;
+        numCandidates = TryAddMoveCandidate(move, candidates, numCandidates, knownMoves);
     }
 
     if (numCandidates == 0)

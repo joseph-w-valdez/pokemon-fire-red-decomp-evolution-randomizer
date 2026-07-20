@@ -85,12 +85,6 @@ static void RunMiniStep(struct Sprite *sprite, u8 speed, u8 currentFrame)
     -FollowMe_WarpStairsEndHook ?
 */
 
-/*
-Known Issues:
-    -follower gets messed up if you go into a map with a maximum number of event objects
-        -inherits incorrect palette, may get directionally confused
-*/
-
 // Defines
 #define PLAYER_AVATAR_FLAG_BIKE    PLAYER_AVATAR_FLAG_MACH_BIKE | PLAYER_AVATAR_FLAG_ACRO_BIKE
 
@@ -128,14 +122,6 @@ static void Task_FollowerHandleEscalatorFinish(u8 taskId);
 static void CalculateFollowerEscalatorTrajectoryUp(struct Task *task);
 static void CalculateFollowerEscalatorTrajectoryDown(struct Task *task);
 static void TurnNPCIntoFollower(u8 localId, u16 followerFlags);
-
-
-/**
- * ::ACIMUT::
- * 2022/04/15
- * - Expandir luego los gfx.
- * - ajustar luego.
- */
 
 // Const Data
 static const struct FollowerSpriteGraphics gFollowerAlternateSprites[] =
@@ -811,96 +797,6 @@ static void Task_FinishSurfDismount(u8 taskId)
     DestroyTask(taskId);
     gPlayerAvatar.preventStep = FALSE;
 }
-
-/**
- * ::ACIMUT::
- * 2022/04/15
- * - static
- * - No es llamada en otra parte de la inyección.
- * - Repuntear.
- */
-
-/*
- * Emerald injection used a custom door warp task. FireRed already hooks
- * Task_DoorWarp / Task_ExitDoor in field_fadetransition.c instead.
- */
-#if 0
-void Task_DoDoorWarp(u8 taskId)
-{
-    struct Task *task = &gTasks[taskId];
-    s16 *x = &task->data[2];
-    s16 *y = &task->data[3];
-    u8 playerObjId = gPlayerAvatar.objectEventId;
-    u8 followerObjId = GetFollowerObjectId();
-
-    switch (task->data[0])
-    {
-    case 0:
-        if (TestPlayerAvatarFlags(PLAYER_AVATAR_FLAG_DASH))
-            SetPlayerAvatarTransitionFlags(PLAYER_AVATAR_FLAG_ON_FOOT); //Stop running
-
-        gSaveBlock1Ptr->follower.comeOutDoorStairs = 0; //Just in case came out and when right back in
-        FreezeObjectEvents();
-        PlayerGetDestCoords(x, y);
-        PlaySE(GetDoorSoundEffect(*x, *y - 1));
-        task->data[1] = FieldAnimateDoorOpen(*x, *y - 1);
-        task->data[0] = 1;
-        break;
-    case 1:
-        if (task->data[1] < 0 || gTasks[task->data[1]].isActive != TRUE)
-        {
-            ObjectEventClearHeldMovementIfActive(&gObjectEvents[playerObjId]);
-            ObjectEventSetHeldMovement(&gObjectEvents[playerObjId], MOVEMENT_ACTION_WALK_NORMAL_UP);
-
-            if (gSaveBlock1Ptr->follower.inProgress && !gObjectEvents[followerObjId].invisible)
-            {
-                u8 newState = DetermineFollowerState(&gObjectEvents[followerObjId], MOVEMENT_ACTION_WALK_NORMAL_UP,
-                                                    DetermineFollowerDirection(&gObjectEvents[playerObjId], &gObjectEvents[followerObjId]));
-                ObjectEventClearHeldMovementIfActive(&gObjectEvents[followerObjId]);
-                ObjectEventSetHeldMovement(&gObjectEvents[followerObjId], newState);
-            }
-
-            task->data[0] = 2;
-        }
-        break;
-    case 2:
-        if (walkrun_is_standing_still())
-        {
-            if (!gSaveBlock1Ptr->follower.inProgress || gObjectEvents[followerObjId].invisible) //Don't close door on follower
-                task->data[1] = FieldAnimateDoorClose(*x, *y - 1);
-            ObjectEventClearHeldMovementIfFinished(&gObjectEvents[playerObjId]);
-            SetPlayerVisibility(0);
-            task->data[0] = 3;
-        }
-        break;
-    case 3:
-        if (task->data[1] < 0 || gTasks[task->data[1]].isActive != TRUE)
-        {
-            task->data[0] = 4;
-        }
-        break;
-    case 4:
-        if (gSaveBlock1Ptr->follower.inProgress)
-        {
-            ObjectEventClearHeldMovementIfActive(&gObjectEvents[followerObjId]);
-            ObjectEventSetHeldMovement(&gObjectEvents[followerObjId], MOVEMENT_ACTION_WALK_NORMAL_UP);
-        }
-
-        TryFadeOutOldMapMusic();
-        WarpFadeOutScreen();
-        PlayRainStoppingSoundEffect();
-        task->data[0] = 0;
-        task->func = Task_Teleport2Warp;
-        break;
-    case 5:
-        TryFadeOutOldMapMusic();
-        PlayRainStoppingSoundEffect();
-        task->data[0] = 0;
-        task->func = Task_Teleport2Warp;
-        break;
-    }
-}
-#endif // 0 - unused FireRed door warp (see field_fadetransition.c)
 
 static u8 GetPlayerFaceToDoorDirection(struct ObjectEvent* player, struct ObjectEvent* follower)
 {

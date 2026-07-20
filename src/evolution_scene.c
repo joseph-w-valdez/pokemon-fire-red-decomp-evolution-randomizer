@@ -523,9 +523,14 @@ void TradeEvolutionScene(struct Pokemon* mon, u16 postEvoSpecies, u8 preEvoSprit
     u8 id;
 
     currSpecies = GetMonData(mon, MON_DATA_SPECIES);
+#if RH_RANDOM_EVOLUTION
     postEvoSpecies = GetRandomValidSpecies(currSpecies);
     gRandomLevelEvoActive = TRUE;
     sRandomLevelEvoMove = GetRandomLevelUpMove(mon, postEvoSpecies);
+#else
+    gRandomLevelEvoActive = FALSE;
+    sRandomLevelEvoMove = MOVE_NONE;
+#endif
 
     GetMonData(mon, MON_DATA_NICKNAME, name);
     StringCopy_Nickname(gStringVar1, name);

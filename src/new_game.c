@@ -128,7 +128,7 @@ void NewGameInitData(void)
     InitEventData();
 #if RH_NUZLOCKE
     // Must run after InitEventData (which clears all flags). Choice is stored in
-    // SaveBlock2 filler_90 so it survives the unkFlag2 wipe above.
+    // SaveBlock2 nuzlockeIntroChoice so it survives the unkFlag2 wipe above.
     Nuzlocke_ApplyIntroChoice();
 #endif
     ResetFameChecker();
@@ -144,7 +144,9 @@ void NewGameInitData(void)
     ClearRoamerData();
     gSaveBlock1Ptr->registeredItem = 0;
     ClearBag();
+#if RH_SKIP_CATCH_TUTORIAL
     AddBagItem(ITEM_TEACHY_TV, 1);
+#endif
     NewGameInitPCItems();
     ClearEnigmaBerries();
     InitEasyChatPhrases();

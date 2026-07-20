@@ -168,7 +168,11 @@ static void FieldCallback_CutGrass(void)
 
 bool8 FldEff_UseCutOnGrass(void)
 {
+#if RH_HM_KEY_ITEMS
     u8 taskId = CreateFieldEffectNoShowMon();
+#else
+    u8 taskId = CreateFieldEffectShowMon();
+#endif
     FLDEFF_SET_FUNC_TO_DATA(FieldMoveCallback_CutGrass);
     IncrementGameStat(GAME_STAT_USED_CUT);
     return FALSE;
@@ -182,7 +186,11 @@ static void FieldCallback_CutTree(void)
 
 bool8 FldEff_UseCutOnTree(void)
 {
+#if RH_HM_KEY_ITEMS
     u8 taskId = CreateFieldEffectNoShowMon();
+#else
+    u8 taskId = CreateFieldEffectShowMon();
+#endif
     FLDEFF_SET_FUNC_TO_DATA(FieldMoveCallback_CutTree);
     IncrementGameStat(GAME_STAT_USED_CUT);
     return FALSE;
