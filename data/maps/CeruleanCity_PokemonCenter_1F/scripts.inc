@@ -41,7 +41,9 @@ CeruleanCity_PokemonCenter_1F_EventScript_Lass::
 	goto_if_set FLAG_GOT_SHINY_CHARM, CeruleanCity_PokemonCenter_1F_EventScript_LassAlreadyGaveCharm
 	msgbox CeruleanCity_PokemonCenter_1F_Text_LoveShinyHunting
 	giveitem_msg CeruleanCity_PokemonCenter_1F_Text_ReceivedShinyCharm, ITEM_SHINY_CHARM, 1, MUS_OBTAIN_KEY_ITEM
+	setflag FLAG_SYS_SHINY_CHARM
 	setflag FLAG_GOT_SHINY_CHARM
+	msgbox CeruleanCity_PokemonCenter_1F_Text_ShinyCharmDefaultsOn
 	release
 	end
 

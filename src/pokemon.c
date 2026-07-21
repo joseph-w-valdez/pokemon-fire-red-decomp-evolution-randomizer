@@ -38,6 +38,7 @@
 #include "constants/battle_move_effects.h"
 #include "constants/union_room.h"
 #include "constants/daycare.h"
+#include "constants/flags.h"
 
 #define SPECIES_TO_HOENN(name)      [SPECIES_##name - 1] = HOENN_DEX_##name
 #define SPECIES_TO_NATIONAL(name)   [SPECIES_##name - 1] = NATIONAL_DEX_##name
@@ -1854,6 +1855,18 @@ void CreateBoxMon(struct BoxPokemon *boxMon, u16 species, u8 level, u8 fixedIV, 
         SetBoxMonData(boxMon, MON_DATA_SPATK_IV, &iv);
         iv = (value & (MAX_IV_MASK << 10)) >> 10;
         SetBoxMonData(boxMon, MON_DATA_SPDEF_IV, &iv);
+    }
+
+    // Debug cheat: force perfect IVs on newly generated mons (wild, gifts, etc.).
+    if (FlagGet(FLAG_SYS_CHEAT_MAX_IVS))
+    {
+        value = MAX_IV_MASK;
+        SetBoxMonData(boxMon, MON_DATA_HP_IV, &value);
+        SetBoxMonData(boxMon, MON_DATA_ATK_IV, &value);
+        SetBoxMonData(boxMon, MON_DATA_DEF_IV, &value);
+        SetBoxMonData(boxMon, MON_DATA_SPEED_IV, &value);
+        SetBoxMonData(boxMon, MON_DATA_SPATK_IV, &value);
+        SetBoxMonData(boxMon, MON_DATA_SPDEF_IV, &value);
     }
 
     if (gSpeciesInfo[species].abilities[1])
@@ -3694,6 +3707,26 @@ u8 GiveMonToPlayer(struct Pokemon *mon)
     SetMonData(mon, MON_DATA_OT_NAME, gSaveBlock2Ptr->playerName);
     SetMonData(mon, MON_DATA_OT_GENDER, &gSaveBlock2Ptr->playerGender);
     SetMonData(mon, MON_DATA_OT_ID, gSaveBlock2Ptr->playerTrainerId);
+
+    for (i = 0; i < PARTY_SIZE; i++)
+    {
+        if (GetMonData(&gPlayerParty[i], MON_DATA_SPECIES, NULL) == SPECIES_NONE)
+            break;
+    }
+
+    if (i >= PARTY_SIZE)
+        return SendMonToPC(mon);
+
+    CopyMon(&gPlayerParty[i], mon, sizeof(*mon));
+    gPlayerPartyCount = i + 1;
+    return MON_GIVEN_TO_PARTY;
+}
+
+// Used when stealing a trainer's Pokémon. Does not rewrite OT id/name/gender.
+// (GiveMonToPlayer's OT id rewrite on OT_ID_RANDOM_NO_SHINY mons can create Bad Eggs.)
+u8 GiveMonToPlayerPreserveOT(struct Pokemon *mon)
+{
+    s32 i;
 
     for (i = 0; i < PARTY_SIZE; i++)
     {
@@ -5715,7 +5748,9 @@ void InfectFirstPartyMonWithPokerus(void)
 
 u16 GetShinyOdds(void)
 {
-    if (CheckBagHasItem(ITEM_SHINY_CHARM, 1))
+    if (FlagGet(FLAG_SYS_CHEAT_ALWAYS_SHINY))
+        return 0xFFFF;
+    if (FlagGet(FLAG_SYS_SHINY_CHARM))
         return SHINY_ODDS_WITH_CHARM;
     return SHINY_ODDS;
 }
@@ -6289,7 +6324,12 @@ bool8 IsMonShiny(struct Pokemon *mon)
 static bool8 IsShinyOtIdPersonality(u32 otId, u32 personality)
 {
     bool8 retVal = FALSE;
-    u32 shinyValue = GET_SHINY_VALUE(otId, personality);
+    u32 shinyValue;
+
+    if (FlagGet(FLAG_SYS_CHEAT_ALWAYS_SHINY))
+        return TRUE;
+
+    shinyValue = GET_SHINY_VALUE(otId, personality);
     if (shinyValue < GetShinyOdds())
         retVal = TRUE;
     return retVal;

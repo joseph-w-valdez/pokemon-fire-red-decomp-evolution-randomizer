@@ -28,6 +28,7 @@
 #include "field_fadetransition.h"
 #include "trade.h"
 #include "constants/daycare.h"
+#include "constants/flags.h"
 #include "constants/region_map_sections.h"
 
 // Combination of RSE's Day-Care (re-used on Four Island), FRLG's Day-Care, and egg_hatch.c
@@ -1154,7 +1155,7 @@ static bool8 TryProduceOrHatchEgg(struct DayCare *daycare)
     }
 
     // Hatch Egg
-    if (++daycare->stepCounter == 255)
+    if (FlagGet(FLAG_SYS_CHEAT_INSTANT_HATCH) || ++daycare->stepCounter == 255)
     {
         u32 steps;
 
@@ -1164,6 +1165,14 @@ static bool8 TryProduceOrHatchEgg(struct DayCare *daycare)
                 continue;
             if (GetMonData(&gPlayerParty[i], MON_DATA_SANITY_IS_BAD_EGG))
                 continue;
+
+            if (FlagGet(FLAG_SYS_CHEAT_INSTANT_HATCH))
+            {
+                steps = 0;
+                SetMonData(&gPlayerParty[i], MON_DATA_FRIENDSHIP, &steps);
+                gSpecialVar_0x8004 = i;
+                return TRUE;
+            }
 
             steps = GetMonData(&gPlayerParty[i], MON_DATA_FRIENDSHIP);
             if (steps != 0)

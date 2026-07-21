@@ -295,7 +295,7 @@
 #define VAR_0x40F2                 0x40F2
 #define VAR_0x40F3                 0x40F3
 #define VAR_0x40F4                 0x40F4
-#define VAR_0x40F5                 0x40F5
+#define VAR_CHEAT_EXP_MULT         0x40F5 // was VAR_0x40F5; index into 1x/2x/5x/10x/15x
 #define VAR_0x40F6                 0x40F6
 #define VAR_0x40F7                 0x40F7
 #define VAR_0x40F8                 0x40F8

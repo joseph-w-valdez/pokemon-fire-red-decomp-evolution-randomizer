@@ -26,13 +26,23 @@ CeruleanCity_PokemonCenter_1F_Text_LoveShinyHunting::
     .string "Different colors, same species.\p"
     .string "PROF. OAK gave me a bunch of\n"
     .string "SHINY CHARMS for helping out.\p"
-    .string "Take one! It helps you find\n"
-    .string "those sparkly POKéMON!$"
+    .string "Take one! It triples your shiny\n"
+    .string "odds when it's turned ON!$"
 
 CeruleanCity_PokemonCenter_1F_Text_ReceivedShinyCharm::
     .string "{PLAYER} received the\n"
     .string "SHINY CHARM!$"
 
+CeruleanCity_PokemonCenter_1F_Text_ShinyCharmDefaultsOn::
+    .string "It defaults to ON, so you're\n"
+    .string "already getting the boost!\p"
+    .string "If you want full-odds shinies,\n"
+    .string "open the KEY ITEMS menu and\l"
+    .string "Use it to turn the charm OFF.$"
+
 CeruleanCity_PokemonCenter_1F_Text_KeepHuntingShinies::
-    .string "Keep that SHINY CHARM close.\n"
-    .string "Oak sent me plenty of extras!$"
+    .string "Remember, the SHINY CHARM\n"
+    .string "starts ON when you get it.\p"
+    .string "Want full odds instead?\n"
+    .string "Use it in KEY ITEMS to turn\l"
+    .string "it OFF. Toggle anytime!$"

@@ -171,6 +171,8 @@ extern const u8 gText_CantDismountBike[];
 extern const u8 gText_CoinCase[];
 extern const u8 gText_AllExpShareOn[];
 extern const u8 gText_AllExpShareOff[];
+extern const u8 gText_ShinyCharmOn[];
+extern const u8 gText_ShinyCharmOff[];
 extern const u8 gText_PlayerUsedVar2[];
 extern const u8 gText_RepelEffectsLingered[];
 extern const u8 gText_UsedVar2WildLured[];

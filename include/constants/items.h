@@ -454,8 +454,9 @@
 #define ITEM_RING_LIGHT 382
 #define ITEM_ALL_EXP_SHARE 383
 #define ITEM_SHINY_CHARM 384
+#define ITEM_DEBUG_MENU 385
 
-#define ITEMS_COUNT 385
+#define ITEMS_COUNT 386
 
 #define ITEM_TO_BERRY(itemId)(((itemId - FIRST_BERRY_INDEX) + 1))
 #define MAIL_NONE 0xFF
