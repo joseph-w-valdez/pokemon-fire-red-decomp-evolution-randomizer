@@ -408,6 +408,7 @@ static const u32 *const sItemIconTable[ITEMS_COUNT + 1][2] =
     [ITEM_RING_LIGHT]     = {gItemIcon_Repel, gItemIconPalette_MaxRepel},
     [ITEM_ALL_EXP_SHARE]  = {gItemIcon_ExpShare, gItemIconPalette_ExpShare},
     [ITEM_SHINY_CHARM]    = {gItemIcon_AmuletCoin, gItemIconPalette_AmuletCoin},
+    [ITEM_DEBUG_MENU]     = {gItemIcon_TMCase, gItemIconPalette_TMCase},
     // Return to field arrow
     [ITEMS_COUNT]         = {gItemIcon_ReturnToFieldArrow, gItemIconPalette_ReturnToFieldArrow},
 };

@@ -27,6 +27,7 @@
 #include "reshow_battle_screen.h"
 #include "battle_controllers.h"
 #include "battle_interface.h"
+#include "battle_gfx_sfx_util.h"
 #include "constants/battle_anim.h"
 #include "constants/battle_move_effects.h"
 #include "constants/battle_script_commands.h"
@@ -37,10 +38,24 @@
 #include "constants/abilities.h"
 #include "constants/pokemon.h"
 #include "constants/maps.h"
+#include "constants/flags.h"
+#include "constants/vars.h"
+#include "constants/trainers.h"
+#include "link.h"
+#include "battle_tower.h"
+#include "trainer_tower.h"
+#include "scanline_effect.h"
+#include "gpu_regs.h"
 
 extern const u8 *const gBattleScriptsForMoveEffects[];
 
 #define DEFENDER_IS_PROTECTED ((gProtectStructs[gBattlerTarget].protected) && (gBattleMoves[gCurrentMove].flags & FLAG_PROTECT_AFFECTED))
+
+static bool8 IsPlayerAccuracyCheatActive(void)
+{
+    return FlagGet(FLAG_SYS_CHEAT_PLAYER_ACCURACY)
+        && GetBattlerSide(gBattlerAttacker) == B_SIDE_PLAYER;
+}
 
 #define LEVEL_UP_BANNER_START 416
 #define LEVEL_UP_BANNER_END   512
@@ -309,6 +324,14 @@ static void Cmd_subattackerhpbydmg(void);
 static void Cmd_removeattackerstatus1(void);
 static void Cmd_finishaction(void);
 static void Cmd_finishturn(void);
+static void Cmd_reshowbattlescreen(void);
+static void DestroyCaughtMonPicIfAny(void);
+static void CleanupFaintedOpponentAfterStealReshow(void);
+static void CB2_ReturnFromStolenMonNaming(void);
+
+// BattleMainCB1 must not run while naming ResetSpriteData()'s — controllers
+// waiting on sprite callbacks treat reset sprites as "done" and free junk.
+static EWRAM_DATA MainCallback sCB1BeforeStolenMonNaming = NULL;
 
 void (* const gBattleScriptingCommandsTable[])(void) =
 {
@@ -560,8 +583,8 @@ void (* const gBattleScriptingCommandsTable[])(void) =
     Cmd_removeattackerstatus1,                   //0xF5
     Cmd_finishaction,                            //0xF6
     Cmd_finishturn,                              //0xF7
+    Cmd_reshowbattlescreen,                      //0xF8
 };
-
 struct StatFractions
 {
     u8 dividend;
@@ -895,6 +918,7 @@ static void Cmd_attackcanceler(void)
         RecordAbilityBattle(gBattlerTarget, gLastUsedAbility);
     }
     else if (DEFENDER_IS_PROTECTED
+     && !IsPlayerAccuracyCheatActive()
      && (gCurrentMove != MOVE_CURSE || IS_BATTLER_OF_TYPE(gBattlerAttacker, TYPE_GHOST))
      && ((!IsTwoTurnsMove(gCurrentMove) || (gBattleMons[gBattlerAttacker].status2 & STATUS2_MULTIPLETURNS))))
     {
@@ -931,7 +955,7 @@ static void JumpIfMoveFailed(u8 adder, u16 move)
 
 static void Cmd_jumpifaffectedbyprotect(void)
 {
-    if (DEFENDER_IS_PROTECTED)
+    if (DEFENDER_IS_PROTECTED && !IsPlayerAccuracyCheatActive())
     {
         gMoveResultFlags |= MOVE_RESULT_MISSED;
         JumpIfMoveFailed(5, 0);
@@ -946,7 +970,7 @@ static void Cmd_jumpifaffectedbyprotect(void)
 static bool8 JumpIfMoveAffectedByProtect(u16 move)
 {
     bool8 affected = FALSE;
-    if (DEFENDER_IS_PROTECTED)
+    if (DEFENDER_IS_PROTECTED && !IsPlayerAccuracyCheatActive())
     {
         gMoveResultFlags |= MOVE_RESULT_MISSED;
         JumpIfMoveFailed(7, move);
@@ -964,32 +988,40 @@ static bool8 AccuracyCalcHelper(u16 move)
         return TRUE;
     }
 
-    if (!(gHitMarker & HITMARKER_IGNORE_ON_AIR) && gStatuses3[gBattlerTarget] & STATUS3_ON_AIR)
+    // 100% player accuracy: hit through Fly / Dig / Dive
+    if (!IsPlayerAccuracyCheatActive())
     {
-        gMoveResultFlags |= MOVE_RESULT_MISSED;
-        JumpIfMoveFailed(7, move);
-        return TRUE;
+        if (!(gHitMarker & HITMARKER_IGNORE_ON_AIR) && gStatuses3[gBattlerTarget] & STATUS3_ON_AIR)
+        {
+            gMoveResultFlags |= MOVE_RESULT_MISSED;
+            JumpIfMoveFailed(7, move);
+            return TRUE;
+        }
+
+        gHitMarker &= ~HITMARKER_IGNORE_ON_AIR;
+
+        if (!(gHitMarker & HITMARKER_IGNORE_UNDERGROUND) && gStatuses3[gBattlerTarget] & STATUS3_UNDERGROUND)
+        {
+            gMoveResultFlags |= MOVE_RESULT_MISSED;
+            JumpIfMoveFailed(7, move);
+            return TRUE;
+        }
+
+        gHitMarker &= ~HITMARKER_IGNORE_UNDERGROUND;
+
+        if (!(gHitMarker & HITMARKER_IGNORE_UNDERWATER) && gStatuses3[gBattlerTarget] & STATUS3_UNDERWATER)
+        {
+            gMoveResultFlags |= MOVE_RESULT_MISSED;
+            JumpIfMoveFailed(7, move);
+            return TRUE;
+        }
+
+        gHitMarker &= ~HITMARKER_IGNORE_UNDERWATER;
     }
-
-    gHitMarker &= ~HITMARKER_IGNORE_ON_AIR;
-
-    if (!(gHitMarker & HITMARKER_IGNORE_UNDERGROUND) && gStatuses3[gBattlerTarget] & STATUS3_UNDERGROUND)
+    else
     {
-        gMoveResultFlags |= MOVE_RESULT_MISSED;
-        JumpIfMoveFailed(7, move);
-        return TRUE;
+        gHitMarker &= ~(HITMARKER_IGNORE_ON_AIR | HITMARKER_IGNORE_UNDERGROUND | HITMARKER_IGNORE_UNDERWATER);
     }
-
-    gHitMarker &= ~HITMARKER_IGNORE_UNDERGROUND;
-
-    if (!(gHitMarker & HITMARKER_IGNORE_UNDERWATER) && gStatuses3[gBattlerTarget] & STATUS3_UNDERWATER)
-    {
-        gMoveResultFlags |= MOVE_RESULT_MISSED;
-        JumpIfMoveFailed(7, move);
-        return TRUE;
-    }
-
-    gHitMarker &= ~HITMARKER_IGNORE_UNDERWATER;
 
     if ((WEATHER_HAS_EFFECT && (gBattleWeather & B_WEATHER_RAIN) && gBattleMoves[move].effect == EFFECT_THUNDER)
      || (gBattleMoves[move].effect == EFFECT_ALWAYS_HIT || gBattleMoves[move].effect == EFFECT_VITAL_THROW))
@@ -1022,7 +1054,8 @@ static void Cmd_accuracycheck(void)
     {
         if (gStatuses3[gBattlerTarget] & STATUS3_ALWAYS_HITS && move == NO_ACC_CALC_CHECK_LOCK_ON && gDisableStructs[gBattlerTarget].battlerWithSureHit == gBattlerAttacker)
             gBattlescriptCurrInstr += 7;
-        else if (gStatuses3[gBattlerTarget] & (STATUS3_ON_AIR | STATUS3_UNDERGROUND | STATUS3_UNDERWATER))
+        else if (!IsPlayerAccuracyCheatActive()
+              && gStatuses3[gBattlerTarget] & (STATUS3_ON_AIR | STATUS3_UNDERGROUND | STATUS3_UNDERWATER))
             gBattlescriptCurrInstr = T1_READ_PTR(gBattlescriptCurrInstr + 1);
         else if (!JumpIfMoveAffectedByProtect(0))
             gBattlescriptCurrInstr += 7;
@@ -1037,6 +1070,13 @@ static void Cmd_accuracycheck(void)
             move = gCurrentMove;
 
         GET_MOVE_TYPE(move, type);
+
+        // Hit through Protect / Fly / Dig / Dive; type immunities still apply in typecalc.
+        if (IsPlayerAccuracyCheatActive())
+        {
+            JumpIfMoveFailed(7, move);
+            return;
+        }
 
         if (JumpIfMoveAffectedByProtect(move))
             return;
@@ -1091,6 +1131,14 @@ static void Cmd_accuracycheck(void)
             calc = (calc * (100 - param)) / 100;
 
         // final calculation
+        if (FlagGet(FLAG_SYS_CHEAT_ENEMY_MISS) && GetBattlerSide(gBattlerAttacker) == B_SIDE_OPPONENT)
+        {
+            gMoveResultFlags |= MOVE_RESULT_MISSED;
+            gBattleCommunication[MISS_TYPE] = B_MSG_MISSED;
+            JumpIfMoveFailed(7, move);
+            return;
+        }
+
         if ((Random() % 100 + 1) > calc)
         {
             gMoveResultFlags |= MOVE_RESULT_MISSED;
@@ -1149,18 +1197,22 @@ static void Cmd_ppreduce(void)
     {
         gProtectStructs[gBattlerAttacker].notFirstStrike = 1;
 
-        if (gBattleMons[gBattlerAttacker].pp[gCurrMovePos] > ppToDeduct)
-            gBattleMons[gBattlerAttacker].pp[gCurrMovePos] -= ppToDeduct;
-        else
-            gBattleMons[gBattlerAttacker].pp[gCurrMovePos] = 0;
-
-        if (MOVE_IS_PERMANENT(gBattlerAttacker, gCurrMovePos))
+        // Debug cheat: player moves never consume PP (classic Infinite PP).
+        if (!(FlagGet(FLAG_SYS_CHEAT_INFINITE_PP) && GetBattlerSide(gBattlerAttacker) == B_SIDE_PLAYER))
         {
-            gActiveBattler = gBattlerAttacker;
-            BtlController_EmitSetMonData(BUFFER_A, REQUEST_PPMOVE1_BATTLE + gCurrMovePos, 0,
-                                         sizeof(gBattleMons[gBattlerAttacker].pp[gCurrMovePos]),
-                                         &gBattleMons[gBattlerAttacker].pp[gCurrMovePos]);
-            MarkBattlerForControllerExec(gBattlerAttacker);
+            if (gBattleMons[gBattlerAttacker].pp[gCurrMovePos] > ppToDeduct)
+                gBattleMons[gBattlerAttacker].pp[gCurrMovePos] -= ppToDeduct;
+            else
+                gBattleMons[gBattlerAttacker].pp[gCurrMovePos] = 0;
+
+            if (MOVE_IS_PERMANENT(gBattlerAttacker, gCurrMovePos))
+            {
+                gActiveBattler = gBattlerAttacker;
+                BtlController_EmitSetMonData(BUFFER_A, REQUEST_PPMOVE1_BATTLE + gCurrMovePos, 0,
+                                             sizeof(gBattleMons[gBattlerAttacker].pp[gCurrMovePos]),
+                                             &gBattleMons[gBattlerAttacker].pp[gCurrMovePos]);
+                MarkBattlerForControllerExec(gBattlerAttacker);
+            }
         }
     }
 
@@ -1726,6 +1778,14 @@ static void Cmd_healthbarupdate(void)
             s32 currDmg = gBattleMoveDamage;
             s32 maxPossibleDmgValue = 10000; // not present in R/S, ensures that huge damage values don't change sign
 
+            if (FlagGet(FLAG_SYS_CHEAT_GOD_MODE)
+             && GetBattlerSide(gActiveBattler) == B_SIDE_PLAYER
+             && currDmg > 0)
+            {
+                currDmg = 0;
+                gBattleMoveDamage = 0;
+            }
+
             if (currDmg <= maxPossibleDmgValue)
                 healthValue = currDmg;
             else
@@ -1796,6 +1856,9 @@ static void Cmd_datahpupdate(void)
             }
             else // hp goes down
             {
+                if (FlagGet(FLAG_SYS_CHEAT_GOD_MODE) && GetBattlerSide(gActiveBattler) == B_SIDE_PLAYER)
+                    gBattleMoveDamage = 0;
+
                 if (gHitMarker & HITMARKER_SKIP_DMG_TRACK)
                 {
                     gHitMarker &= ~HITMARKER_SKIP_DMG_TRACK;
@@ -3207,6 +3270,22 @@ static void Cmd_getexp(void)
                 }
 
                 gBattleStruct->sentInPokes = sentIn;
+            }
+
+            {
+                static const u8 sExpMults[] = {1, 2, 5, 10, 15};
+                u16 multIdx = VarGet(VAR_CHEAT_EXP_MULT);
+                u16 mult;
+
+                if (multIdx >= ARRAY_COUNT(sExpMults))
+                    multIdx = 0;
+                mult = sExpMults[multIdx];
+                if (mult > 1)
+                {
+                    *exp *= mult;
+                    if (gExpShareExp != 0)
+                        gExpShareExp *= mult;
+                }
             }
 
             gBattleScripting.getexpState++;
@@ -9465,6 +9544,78 @@ static void Cmd_removelightscreenreflect(void)
     gBattlescriptCurrInstr++;
 }
 
+// Mark the caught trainer mon as fainted for getexp / HandleFaintedMon, but keep
+// its catch HP on the enemy party slot for GiveMonToPlayerPreserveOT.
+static void Steal_PrepareFaintedMon(void)
+{
+    u8 partyIndex = gBattlerPartyIndexes[gBattlerTarget];
+    struct Pokemon *mon = &gEnemyParty[partyIndex];
+    u16 hp = gBattleMons[gBattlerTarget].hp;
+
+    if (hp == 0)
+        hp = 1;
+    SetMonData(mon, MON_DATA_HP, &hp);
+
+    gBattleMons[gBattlerTarget].hp = 0;
+    gHitMarker |= HITMARKER_FAINTED(gBattlerTarget);
+    gBattlerFainted = gBattlerTarget;
+    SetHealthboxSpriteInvisible(gHealthboxSpriteIds[gBattlerTarget]);
+}
+
+// Mirror B_TXT_TRAINER1_NAME: whatever name the battle UI shows for this opponent.
+static void CopyOpponentNameForStolenMonOt(u8 *dest)
+{
+    s32 i;
+
+    if (gTrainerBattleOpponent_A == TRAINER_SECRET_BASE)
+    {
+        for (i = 0; i < (s32)NELEMS(gBattleResources->secretBase->trainerName) && i < PLAYER_NAME_LENGTH; i++)
+            dest[i] = gBattleResources->secretBase->trainerName[i];
+        dest[i] = EOS;
+    }
+    else if (gTrainerBattleOpponent_A == TRAINER_UNION_ROOM)
+    {
+        StringCopy(dest, gLinkPlayers[GetMultiplayerId() ^ BIT_SIDE].name);
+    }
+    else if (gBattleTypeFlags & BATTLE_TYPE_BATTLE_TOWER)
+    {
+        GetBattleTowerTrainerName(dest);
+    }
+    else if (gBattleTypeFlags & BATTLE_TYPE_TRAINER_TOWER)
+    {
+        GetTrainerTowerOpponentName(dest);
+    }
+    else if (gBattleTypeFlags & BATTLE_TYPE_EREADER_TRAINER)
+    {
+        CopyEReaderTrainerName5(dest);
+    }
+    else if (gTrainers[gTrainerBattleOpponent_A].trainerClass == TRAINER_CLASS_RIVAL_EARLY
+          || gTrainers[gTrainerBattleOpponent_A].trainerClass == TRAINER_CLASS_RIVAL_LATE
+          || gTrainers[gTrainerBattleOpponent_A].trainerClass == TRAINER_CLASS_CHAMPION)
+    {
+        // Data table says "TERRY"; battle text uses the player's chosen rival name.
+        StringCopy(dest, GetExpandedPlaceholder(PLACEHOLDER_ID_RIVAL));
+    }
+    else
+    {
+        // Gym leaders, youngsters, etc. — name from gTrainers[].
+        StringCopy(dest, gTrainers[gTrainerBattleOpponent_A].trainerName);
+    }
+}
+
+static u8 GetOpponentGenderForStolenMonOt(void)
+{
+    if (gTrainerBattleOpponent_A == TRAINER_SECRET_BASE)
+        return gBattleResources->secretBase->gender;
+
+    if (gTrainerBattleOpponent_A != TRAINER_UNION_ROOM
+     && !(gBattleTypeFlags & (BATTLE_TYPE_LINK | BATTLE_TYPE_BATTLE_TOWER | BATTLE_TYPE_EREADER_TRAINER | BATTLE_TYPE_TRAINER_TOWER))
+     && (gTrainers[gTrainerBattleOpponent_A].encounterMusic_gender & F_TRAINER_FEMALE))
+        return FEMALE;
+
+    return MALE;
+}
+
 static void Cmd_handleballthrow(void)
 {
     u8 ballMultiplier = 0;
@@ -9481,7 +9632,7 @@ static void Cmd_handleballthrow(void)
         MarkBattlerForControllerExec(gActiveBattler);
         gBattlescriptCurrInstr = BattleScript_GhostBallDodge;
     }
-    else if (gBattleTypeFlags & BATTLE_TYPE_TRAINER)
+    else if ((gBattleTypeFlags & BATTLE_TYPE_TRAINER) && !FlagGet(FLAG_SYS_CHEAT_CATCH_TRAINERS))
     {
         BtlController_EmitBallThrowAnim(BUFFER_A, BALL_TRAINER_BLOCK);
         MarkBattlerForControllerExec(gActiveBattler);
@@ -9567,6 +9718,9 @@ static void Cmd_handleballthrow(void)
         if (gBattleMons[gBattlerTarget].status1 & (STATUS1_POISON | STATUS1_BURN | STATUS1_PARALYSIS | STATUS1_TOXIC_POISON))
             odds = (odds * 15) / 10;
 
+        if (FlagGet(FLAG_SYS_CHEAT_CATCH_RATE))
+            odds = 255;
+
         if (gLastUsedItem != ITEM_SAFARI_BALL)
         {
             if (gLastUsedItem == ITEM_MASTER_BALL)
@@ -9586,6 +9740,8 @@ static void Cmd_handleballthrow(void)
             MarkBattlerForControllerExec(gActiveBattler);
             gBattlescriptCurrInstr = BattleScript_SuccessBallThrow;
             SetMonData(&gEnemyParty[gBattlerPartyIndexes[gBattlerTarget]], MON_DATA_POKEBALL, &gLastUsedItem);
+            if (gBattleTypeFlags & BATTLE_TYPE_TRAINER)
+                Steal_PrepareFaintedMon();
 
             if (CalculatePlayerPartyCount() == PARTY_SIZE)
                 gBattleCommunication[MULTISTRING_CHOOSER] = 0;
@@ -9611,6 +9767,8 @@ static void Cmd_handleballthrow(void)
             {
                 gBattlescriptCurrInstr = BattleScript_SuccessBallThrow;
                 SetMonData(&gEnemyParty[gBattlerPartyIndexes[gBattlerTarget]], MON_DATA_POKEBALL, &gLastUsedItem);
+                if (gBattleTypeFlags & BATTLE_TYPE_TRAINER)
+                    Steal_PrepareFaintedMon();
 
                 if (CalculatePlayerPartyCount() == PARTY_SIZE)
                     gBattleCommunication[MULTISTRING_CHOOSER] = 0;
@@ -9628,37 +9786,107 @@ static void Cmd_handleballthrow(void)
 
 static void Cmd_givecaughtmon(void)
 {
-    if (GiveMonToPlayer(&gEnemyParty[gBattlerPartyIndexes[gBattlerAttacker ^ BIT_SIDE]]) != MON_GIVEN_TO_PARTY)
+    u8 partyIndex = gBattlerPartyIndexes[gBattlerAttacker ^ BIT_SIDE];
+    struct Pokemon *mon = &gEnemyParty[partyIndex];
+    u8 given;
+
+    if (gBattleTypeFlags & BATTLE_TYPE_TRAINER)
     {
-        if (!ShouldShowBoxWasFullMessage())
+        u16 hp = GetMonData(mon, MON_DATA_HP, NULL);
+        u16 species = gBattleMons[gBattlerTarget].species;
+        u32 personality = gBattleMons[gBattlerTarget].personality;
+        u8 otName[PLAYER_NAME_LENGTH + 1];
+        u8 otGender;
+
+        // Catch HP was saved on the party slot in Steal_PrepareFaintedMon.
+        if (hp == 0)
+            hp = 1;
+        SetMonData(mon, MON_DATA_HP, &hp);
+
+        // Stamp current opponent's display name as OT (Brock, rival, tower, etc.).
+        CopyOpponentNameForStolenMonOt(otName);
+        SetMonData(mon, MON_DATA_OT_NAME, otName);
+        otGender = GetOpponentGenderForStolenMonOt();
+        SetMonData(mon, MON_DATA_OT_GENDER, &otGender);
+
+        // Keep the random OT id — rewriting it like GiveMonToPlayer causes Bad Eggs.
+        given = GiveMonToPlayerPreserveOT(mon);
+
+        gBattleResults.caughtMonSpecies = species;
+        GetMonData(mon, MON_DATA_NICKNAME, gBattleResults.caughtMonNick);
+
+        if (given == MON_GIVEN_TO_PARTY)
+        {
+            gBattleCommunication[MULTISTRING_CHOOSER] = 0xFF; // skip PC transfer print
+        }
+        else if (!ShouldShowBoxWasFullMessage())
         {
             gBattleCommunication[MULTISTRING_CHOOSER] = B_MSG_SENT_SOMEONES_PC;
             StringCopy(gStringVar1, GetBoxNamePtr(VarGet(VAR_PC_BOX_TO_SEND_MON)));
-            GetMonData(&gEnemyParty[gBattlerPartyIndexes[gBattlerAttacker ^ BIT_SIDE]], MON_DATA_NICKNAME, gStringVar2);
+            GetMonData(mon, MON_DATA_NICKNAME, gStringVar2);
+            if (FlagGet(FLAG_SYS_NOT_SOMEONES_PC))
+                gBattleCommunication[MULTISTRING_CHOOSER]++;
         }
         else
         {
-            StringCopy(gStringVar1, GetBoxNamePtr(VarGet(VAR_PC_BOX_TO_SEND_MON))); // box the mon was sent to
-            GetMonData(&gEnemyParty[gBattlerPartyIndexes[gBattlerAttacker ^ BIT_SIDE]], MON_DATA_NICKNAME, gStringVar2);
-            StringCopy(gStringVar3, GetBoxNamePtr(GetPCBoxToSendMon())); //box the mon was going to be sent to
+            StringCopy(gStringVar1, GetBoxNamePtr(VarGet(VAR_PC_BOX_TO_SEND_MON)));
+            GetMonData(mon, MON_DATA_NICKNAME, gStringVar2);
+            StringCopy(gStringVar3, GetBoxNamePtr(GetPCBoxToSendMon()));
             gBattleCommunication[MULTISTRING_CHOOSER] = B_MSG_SOMEONES_BOX_FULL;
+            if (FlagGet(FLAG_SYS_NOT_SOMEONES_PC))
+                gBattleCommunication[MULTISTRING_CHOOSER]++;
         }
 
-        // Change to B_MSG_SENT_BILLS_PC or B_MSG_BILLS_BOX_FULL
-        if (FlagGet(FLAG_SYS_NOT_SOMEONES_PC))
-            gBattleCommunication[MULTISTRING_CHOOSER]++;
-    }
+        // Enemy party slot must look fainted for the rest of the fight.
+        gBattleMons[gBattlerTarget].hp = 0;
+        SetMonData(mon, MON_DATA_HP, &gBattleMons[gBattlerTarget].hp);
+        gHitMarker |= HITMARKER_FAINTED(gBattlerTarget);
+        gBattlerFainted = gBattlerTarget;
+        // displaydexinfo ResetSpriteData() invalidates these ids; reshow recreates them.
+        {
+            u8 healthboxSpriteId = gHealthboxSpriteIds[gBattlerTarget];
+            if (healthboxSpriteId < MAX_SPRITES && gSprites[healthboxSpriteId].inUse)
+                SetHealthboxSpriteInvisible(healthboxSpriteId);
+        }
 
-    gBattleResults.caughtMonSpecies = gBattleMons[gBattlerAttacker ^ BIT_SIDE].species;
-    GetMonData(&gEnemyParty[gBattlerPartyIndexes[gBattlerAttacker ^ BIT_SIDE]], MON_DATA_NICKNAME, gBattleResults.caughtMonNick);
+        if (!GetSetPokedexFlag(SpeciesToNationalPokedexNum(species), FLAG_GET_CAUGHT))
+            HandleSetPokedexFlag(SpeciesToNationalPokedexNum(species), FLAG_SET_CAUGHT, personality);
+    }
+    else
+    {
+        given = GiveMonToPlayer(mon);
+
+        if (given != MON_GIVEN_TO_PARTY)
+        {
+            if (!ShouldShowBoxWasFullMessage())
+            {
+                gBattleCommunication[MULTISTRING_CHOOSER] = B_MSG_SENT_SOMEONES_PC;
+                StringCopy(gStringVar1, GetBoxNamePtr(VarGet(VAR_PC_BOX_TO_SEND_MON)));
+                GetMonData(mon, MON_DATA_NICKNAME, gStringVar2);
+            }
+            else
+            {
+                StringCopy(gStringVar1, GetBoxNamePtr(VarGet(VAR_PC_BOX_TO_SEND_MON)));
+                GetMonData(mon, MON_DATA_NICKNAME, gStringVar2);
+                StringCopy(gStringVar3, GetBoxNamePtr(GetPCBoxToSendMon()));
+                gBattleCommunication[MULTISTRING_CHOOSER] = B_MSG_SOMEONES_BOX_FULL;
+            }
+            if (FlagGet(FLAG_SYS_NOT_SOMEONES_PC))
+                gBattleCommunication[MULTISTRING_CHOOSER]++;
+        }
+
+        gBattleResults.caughtMonSpecies = gBattleMons[gBattlerAttacker ^ BIT_SIDE].species;
+        GetMonData(mon, MON_DATA_NICKNAME, gBattleResults.caughtMonNick);
+    }
 
     gBattlescriptCurrInstr++;
 }
 
 static void Cmd_trysetcaughtmondexflags(void)
 {
-    u16 species = GetMonData(&gEnemyParty[0], MON_DATA_SPECIES, NULL);
-    u32 personality = GetMonData(&gEnemyParty[0], MON_DATA_PERSONALITY, NULL);
+    u8 partyIndex = gBattlerPartyIndexes[gBattlerAttacker ^ BIT_SIDE];
+    u16 species = GetMonData(&gEnemyParty[partyIndex], MON_DATA_SPECIES, NULL);
+    u32 personality = GetMonData(&gEnemyParty[partyIndex], MON_DATA_PERSONALITY, NULL);
 
     if (GetSetPokedexFlag(SpeciesToNationalPokedexNum(species), FLAG_GET_CAUGHT))
     {
@@ -9671,13 +9899,36 @@ static void Cmd_trysetcaughtmondexflags(void)
     }
 }
 
+static void DestroyCaughtMonPicIfAny(void)
+{
+    // field_78 = catch-summary mon pic sprite id (0xFF = none).
+    // Always FreeAndDestroy — sSpritePics keeps Alloc'd frames even if inUse was cleared.
+    if (gBattleStruct->field_78 != 0xFF && gBattleStruct->field_78 < MAX_SPRITES)
+        FreeAndDestroyMonPicSprite(gBattleStruct->field_78);
+    gBattleStruct->field_78 = 0xFF;
+}
+
+static void CB2_ReturnFromStolenMonNaming(void)
+{
+    if (sCB1BeforeStolenMonNaming != NULL)
+    {
+        SetMainCallback1(sCB1BeforeStolenMonNaming);
+        sCB1BeforeStolenMonNaming = NULL;
+    }
+    ReshowBattleScreenAfterMenu();
+}
+
 static void Cmd_displaydexinfo(void)
 {
-    u16 species = GetMonData(&gEnemyParty[0], MON_DATA_SPECIES, NULL);
+    u8 partyIndex = gBattlerPartyIndexes[gBattlerAttacker ^ BIT_SIDE];
+    u16 species = GetMonData(&gEnemyParty[partyIndex], MON_DATA_SPECIES, NULL);
+    u16 picSpriteId;
+    s32 i;
 
     switch (gBattleCommunication[0])
     {
     case 0:
+        gBattleStruct->field_78 = 0xFF;
         BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 16, RGB_WHITE);
         gBattleCommunication[0]++;
         break;
@@ -9690,10 +9941,18 @@ static void Cmd_displaydexinfo(void)
         }
         break;
     case 2:
+        // Match vanilla: only wipe VRAM + restore battle VBlank. Dex already
+        // ResetSpriteData on open; do not FreeAllPicSprites/tile teardown here —
+        // FreeAndDestroy(0) used to hit inactive pic slots (paletteTag 0) and crash.
         if (!gPaletteFade.active
             && gMain.callback2 == BattleMainCB2
             && !gTasks[gBattleCommunication[TASK_ID]].isActive)
         {
+            for (i = 0; i < MAX_SPRITES; i++)
+            {
+                if (gSprites[i].inUse)
+                    gSprites[i].invisible = TRUE;
+            }
             CpuFill32(0, (void *)VRAM, VRAM_SIZE);
             SetVBlankCallback(VBlankCB_Battle);
             gBattleCommunication[0]++;
@@ -9708,14 +9967,23 @@ static void Cmd_displaydexinfo(void)
     case 4:
         if (!IsDma3ManagerBusyWithBgCopy())
         {
-            CreateMonPicSprite_HandleDeoxys(species,
-                                            gBattleMons[B_POSITION_OPPONENT_LEFT].otId,
-                                            gBattleMons[B_POSITION_OPPONENT_LEFT].personality,
+            // Safe place to reclaim dex leftover pics + OBJ tiles for the summary pic.
+            FreeAllPicSprites();
+            FreeSpriteTileRanges();
+            gReservedSpriteTileCount = 0;
+            AllocSpriteTiles(0);
+            FreeAllSpritePalettes();
+            gReservedSpritePaletteCount = 4;
+
+            picSpriteId = CreateMonPicSprite_HandleDeoxys(species,
+                                            gBattleMons[gBattlerAttacker ^ BIT_SIDE].otId,
+                                            gBattleMons[gBattlerAttacker ^ BIT_SIDE].personality,
                                             TRUE,
                                             120,
                                             64,
                                             0,
                                             0xFFFF);
+            gBattleStruct->field_78 = (picSpriteId < MAX_SPRITES) ? picSpriteId : 0xFF;
             CpuFill32(0, gPlttBufferFaded, BG_PLTT_SIZE);
             BeginNormalPaletteFade(0x1FFFF, 0, 16, 0, RGB_BLACK);
             ShowBg(0);
@@ -9846,26 +10114,54 @@ static void Cmd_trygivecaughtmonnick(void)
     case 2:
         if (!gPaletteFade.active)
         {
-            GetMonData(&gEnemyParty[gBattlerPartyIndexes[gBattlerAttacker ^ BIT_SIDE]], MON_DATA_NICKNAME, gBattleStruct->caughtMonNick);
+            MainCallback returnCb;
+            u8 partyIndex = gBattlerPartyIndexes[gBattlerAttacker ^ BIT_SIDE];
+
+            // Free catch pic heap before naming Alloc (~7.5KB NamingScreenData).
+            DestroyCaughtMonPicIfAny();
+            GetMonData(&gEnemyParty[partyIndex], MON_DATA_NICKNAME, gBattleStruct->caughtMonNick);
+
+            // Kill battle VBlank before FreeAllWindowBuffers / naming DMA clears VRAM.
+            SetVBlankCallback(NULL);
+            SetHBlankCallback(NULL);
+            ScanlineEffect_Clear();
             FreeAllWindowBuffers();
 
+            // Trainer steals: freeze BattleMainCB1 for the whole naming screen.
+            // Naming's ResetSpriteData would otherwise false-complete sprite waits.
+            // Return via reshow (bag-style) — BattleMainCB2 alone has no battle gfx.
+            if (gBattleTypeFlags & BATTLE_TYPE_TRAINER)
+            {
+                sCB1BeforeStolenMonNaming = gMain.callback1;
+                SetMainCallback1(NULL);
+                returnCb = CB2_ReturnFromStolenMonNaming;
+            }
+            else
+            {
+                returnCb = BattleMainCB2;
+            }
+
             DoNamingScreen(NAMING_SCREEN_CAUGHT_MON, gBattleStruct->caughtMonNick,
-                           GetMonData(&gEnemyParty[gBattlerPartyIndexes[gBattlerAttacker ^ BIT_SIDE]], MON_DATA_SPECIES),
-                           GetMonGender(&gEnemyParty[gBattlerPartyIndexes[gBattlerAttacker ^ BIT_SIDE]]),
-                           GetMonData(&gEnemyParty[gBattlerPartyIndexes[gBattlerAttacker ^ BIT_SIDE]], MON_DATA_PERSONALITY, NULL),
-                           BattleMainCB2);
+                           GetMonData(&gEnemyParty[partyIndex], MON_DATA_SPECIES),
+                           GetMonGender(&gEnemyParty[partyIndex]),
+                           GetMonData(&gEnemyParty[partyIndex], MON_DATA_PERSONALITY, NULL),
+                           returnCb);
 
             gBattleCommunication[MULTIUSE_STATE]++;
         }
         break;
     case 3:
+        // Trainer path: naming → CB2_ReturnFromStolenMonNaming → reshow → BattleMainCB2.
         if (gMain.callback2 == BattleMainCB2 && !gPaletteFade.active)
         {
             SetMonData(&gEnemyParty[gBattlerPartyIndexes[gBattlerAttacker ^ BIT_SIDE]], MON_DATA_NICKNAME, gBattleStruct->caughtMonNick);
+            if (gBattleTypeFlags & BATTLE_TYPE_TRAINER)
+                CleanupFaintedOpponentAfterStealReshow();
             gBattlescriptCurrInstr = T1_READ_PTR(gBattlescriptCurrInstr + 1);
         }
         break;
     case 4:
+        DestroyCaughtMonPicIfAny();
         if (CalculatePlayerPartyCount() == PARTY_SIZE)
             gBattlescriptCurrInstr += 5;
         else
@@ -9895,4 +10191,59 @@ static void Cmd_finishturn(void)
 {
     gCurrentActionFuncId = B_ACTION_FINISHED;
     gCurrentTurnActionNumber = gBattlersCount;
+}
+
+// After bag-style reshow, keep the caught field slot as an invisible placeholder only.
+// Do NOT destroy/recreate healthboxes here — that stacked duplicate boxes.
+static void CleanupFaintedOpponentAfterStealReshow(void)
+{
+    u8 battler;
+    s32 i;
+
+    for (i = 0; i < 4; i++)
+        ActionSelectionDestroyCursorAt(i);
+
+    for (battler = 0; battler < gBattlersCount; battler++)
+    {
+        if (GetBattlerSide(battler) != B_SIDE_OPPONENT)
+            continue;
+        if (GetMonData(&gEnemyParty[gBattlerPartyIndexes[battler]], MON_DATA_HP) != 0)
+            continue;
+
+        if (gBattlerSpriteIds[battler] < MAX_SPRITES && gSprites[gBattlerSpriteIds[battler]].inUse)
+            DestroySprite(&gSprites[gBattlerSpriteIds[battler]]);
+        gBattlerSpriteIds[battler] = CreateInvisibleSpriteWithCallback(SpriteCallbackDummy);
+
+        SetHealthboxSpriteInvisible(gHealthboxSpriteIds[battler]);
+        HideBattlerShadowSprite(battler);
+    }
+}
+
+// Dex / nickname leave VRAM in a catch-screen state; rebuild full battle gfx
+// before the opponent can send out their next mon.
+static void Cmd_reshowbattlescreen(void)
+{
+    switch (gBattleCommunication[0])
+    {
+    case 0:
+        BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 16, RGB_BLACK);
+        gBattleCommunication[0]++;
+        break;
+    case 1:
+        if (!gPaletteFade.active)
+        {
+            DestroyCaughtMonPicIfAny();
+            FreeAllWindowBuffers();
+            ReshowBattleScreenAfterMenu();
+            gBattleCommunication[0]++;
+        }
+        break;
+    case 2:
+        if (gMain.callback2 == BattleMainCB2 && !gPaletteFade.active)
+        {
+            CleanupFaintedOpponentAfterStealReshow();
+            gBattlescriptCurrInstr++;
+        }
+        break;
+    }
 }

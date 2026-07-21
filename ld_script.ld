@@ -165,6 +165,9 @@ SECTIONS {
         src/field_special_scene.o(.text);
         src/safari_zone.o(.text);
         src/item_use.o(.text);
+        src/rh_debug_menu.o(.text);
+        src/rh_log.o(.text);
+        src/scrollbar.o(.text);
         src/battle_anim_effects_1.o(.text);
         src/battle_anim_effects_2.o(.text);
         src/battle_anim_water.o(.text);
@@ -477,6 +480,9 @@ SECTIONS {
         src/naming_screen.o(.rodata);
         src/pokemon_size_record.o(.rodata);
         src/item_use.o(.rodata);
+        src/rh_debug_menu.o(.rodata);
+        src/rh_log.o(.rodata);
+        src/scrollbar.o(.rodata);
         src/battle_anim_effects_1.o(.rodata);
         src/battle_anim_effects_2.o(.rodata);
         src/battle_anim_water.o(.rodata);

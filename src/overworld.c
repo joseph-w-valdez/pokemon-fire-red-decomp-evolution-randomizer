@@ -37,6 +37,7 @@
 #include "quest_log_objects.h"
 #include "random.h"
 #include "renewable_hidden_items.h"
+#include "rh_debug_menu.h"
 #include "roamer.h"
 #include "safari_zone.h"
 #include "save_location.h"
@@ -1710,6 +1711,7 @@ void CB2_ContinueSavedGame(void)
     PlayTimeCounter_Start();
     ScriptContext_Init();
     UnlockPlayerFieldControls();
+    RhDebugMenu_SyncKeyItem();
     gFieldCallback2 = NULL;
     gExitStairsMovementDisabled = TRUE;
     if (UseContinueGameWarp() == TRUE)

@@ -1060,10 +1060,16 @@ static void OpponentHandleSwitchInAnim(void)
 static void StartSendOutAnim(u8 battlerId, bool8 dontClearSubstituteBit)
 {
     u16 species;
+    u8 oldSpriteId = gBattlerSpriteIds[battlerId];
 
     ClearTemporarySpeciesSpriteData(battlerId, dontClearSubstituteBit);
     gBattlerPartyIndexes[battlerId] = gBattleBufferA[battlerId][1];
     species = GetMonData(&gEnemyParty[gBattlerPartyIndexes[battlerId]], MON_DATA_SPECIES);
+
+    // Normal faint destroys the old sprite first; steal/reshow may leave a placeholder.
+    if (oldSpriteId < MAX_SPRITES && gSprites[oldSpriteId].inUse)
+        DestroySprite(&gSprites[oldSpriteId]);
+
     gBattleControllerData[battlerId] = CreateInvisibleSpriteWithCallback(SpriteCB_WaitForBattlerBallReleaseAnim);
     BattleLoadOpponentMonSpriteGfx(&gEnemyParty[gBattlerPartyIndexes[battlerId]], battlerId);
     SetMultiuseSpriteTemplateToPokemon(species, GetBattlerPosition(battlerId));
@@ -1151,6 +1157,14 @@ static void OpponentHandleDrawTrainerPic(void)
 static void OpponentHandleTrainerSlide(void)
 {
     u32 trainerPicId;
+    u8 oldSpriteId = gBattlerSpriteIds[gActiveBattler];
+
+    // After a steal-reshow the fainted mon may only have an invisible placeholder;
+    // destroy it so its OAM isn't left drawing with overwritten tiles.
+    if (oldSpriteId < MAX_SPRITES && gSprites[oldSpriteId].inUse)
+        DestroySprite(&gSprites[oldSpriteId]);
+    HideBattlerShadowSprite(gActiveBattler);
+    SetHealthboxSpriteInvisible(gHealthboxSpriteIds[gActiveBattler]);
 
     if (gTrainerBattleOpponent_A == TRAINER_SECRET_BASE)
         trainerPicId = GetSecretBaseTrainerPicIndex();

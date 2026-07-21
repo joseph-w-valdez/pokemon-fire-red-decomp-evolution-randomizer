@@ -3150,6 +3150,8 @@ u8 IsMonDisobedient(void)
         return 0;
     if (GetBattlerSide(gBattlerAttacker) == B_SIDE_OPPONENT)
         return 0;
+    if (FlagGet(FLAG_SYS_CHEAT_ALWAYS_OBEY))
+        return 0;
 
     if (IsBattlerModernFatefulEncounter(gBattlerAttacker)) // only false if illegal Mew or Deoxys
     {

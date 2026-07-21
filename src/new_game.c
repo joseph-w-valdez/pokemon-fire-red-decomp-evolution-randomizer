@@ -31,6 +31,7 @@
 #include "berry_powder.h"
 #include "pokemon_jump.h"
 #include "event_scripts.h"
+#include "rh_debug_menu.h"
 
 // this file's functions
 static void ResetMiniGamesResults(void);
@@ -138,6 +139,8 @@ void NewGameInitData(void)
     InitHeracrossSizeRecord();
     InitMagikarpSizeRecord();
     EnableNationalPokedex_RSE();
+    // Keep debug cheats off (RSE stub above sets FLAG_0x838 only).
+    RhDebugMenu_ResetAllCheats();
     gPlayerPartyCount = 0;
     ZeroPlayerPartyMons();
     ResetPokemonStorageSystem();
@@ -147,6 +150,7 @@ void NewGameInitData(void)
 #if RH_SKIP_CATCH_TUTORIAL
     AddBagItem(ITEM_TEACHY_TV, 1);
 #endif
+    RhDebugMenu_SyncKeyItem();
     NewGameInitPCItems();
     ClearEnigmaBerries();
     InitEasyChatPhrases();

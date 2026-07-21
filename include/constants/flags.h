@@ -1226,11 +1226,11 @@
 // Unused hidden item flags
 #define FLAG_HIDE_VIRIDIAN_CITY_TUTORIAL_MAN    0x4A7 // Hide roadblock/tutorial old man after Oak's Parcel
 #define FLAG_SAFE_FOLLOWER_MOVEMENT             0x4A8 // Hide follower during scripted movement
-#define FLAG_UNUSED_0x4A9               0x4A9 // Unused Flag
-#define FLAG_UNUSED_0x4AA               0x4AA // Unused Flag
-#define FLAG_UNUSED_0x4AB               0x4AB // Unused Flag
-#define FLAG_UNUSED_0x4AC               0x4AC // Unused Flag
-#define FLAG_UNUSED_0x4AD               0x4AD // Unused Flag
+#define FLAG_SYS_CHEAT_INFINITE_PP          0x4A9 // Infinite PP cheat
+#define FLAG_SYS_CHEAT_INSTANT_HATCH        0x4AA // Instant egg hatch cheat
+#define FLAG_SYS_CHEAT_MAX_IVS              0x4AB // Max IVs on CreateMon
+#define FLAG_SYS_CHEAT_FREE_MARTS           0x4AC // Free Poké Mart buy prices
+#define FLAG_SYS_CHEAT_ALWAYS_OBEY          0x4AD // Party Pokémon always obey
 #define FLAG_UNUSED_0x4AE               0x4AE // Unused Flag
 #define FLAG_UNUSED_0x4AF               0x4AF // Unused Flag
 
@@ -1379,24 +1379,24 @@
 #define FLAG_SYS_ALL_EXP_SHARE                                      (SYS_FLAGS + 0x2B) // was FLAG_0x82B
 #define FLAG_SYS_GAME_CLEAR                                         (SYS_FLAGS + 0x2C)
 #define FLAG_SYS_SET_TRAINER_CARD_PROFILE                           (SYS_FLAGS + 0x2D)
-#define FLAG_0x82E                                                  (SYS_FLAGS + 0x2E)
+#define FLAG_SYS_SHINY_CHARM                                        (SYS_FLAGS + 0x2E) // was FLAG_0x82E
 #define FLAG_SYS_B_DASH                                             (SYS_FLAGS + 0x2F)
 #define FLAG_SYS_ON_CYCLING_ROAD                                    (SYS_FLAGS + 0x30)
-#define FLAG_0x831                                                  (SYS_FLAGS + 0x31)
-#define FLAG_0x832                                                  (SYS_FLAGS + 0x32)
-#define FLAG_0x833                                                  (SYS_FLAGS + 0x33)
+#define FLAG_SYS_CHEAT_GOD_MODE                                     (SYS_FLAGS + 0x31) // was FLAG_0x831
+#define FLAG_SYS_CHEAT_ALWAYS_SHINY                                 (SYS_FLAGS + 0x32) // was FLAG_0x832
+#define FLAG_SYS_CHEAT_PLAYER_ACCURACY                              (SYS_FLAGS + 0x33) // was FLAG_0x833
 #define FLAG_SYS_NOT_SOMEONES_PC                                    (SYS_FLAGS + 0x34)
-#define FLAG_0x835                                                  (SYS_FLAGS + 0x35)
-#define FLAG_0x836                                                  (SYS_FLAGS + 0x36)
+#define FLAG_SYS_CHEAT_ENEMY_MISS                                   (SYS_FLAGS + 0x35) // was FLAG_0x835
+#define FLAG_SYS_CHEAT_CATCH_RATE                                   (SYS_FLAGS + 0x36) // was FLAG_0x836
 #define FLAG_SYS_RESET_RTC_ENABLE                                   (SYS_FLAGS + 0x37)
-#define FLAG_0x838                                                  (SYS_FLAGS + 0x38) // Set, never read
+#define FLAG_0x838                                                  (SYS_FLAGS + 0x38) // unused RSE national-dex stub (set on New Game)
 #define FLAG_SYS_MYSTERY_GIFT_ENABLED                               (SYS_FLAGS + 0x39)
-#define FLAG_0x83A                                                  (SYS_FLAGS + 0x3A)
+#define FLAG_SYS_CHEAT_WALK_WALLS                                   (SYS_FLAGS + 0x3A) // was FLAG_0x83A
 #define FLAG_SYS_RIBBON_GET                                         (SYS_FLAGS + 0x3B)
 #define FLAG_SYS_SAW_HELP_SYSTEM_INTRO                              (SYS_FLAGS + 0x3C)
-#define FLAG_0x83D                                                  (SYS_FLAGS + 0x3D)
+#define FLAG_SYS_CHEAT_CATCH_TRAINERS                               (SYS_FLAGS + 0x3D) // was FLAG_0x83D
 #define FLAG_OPENED_START_MENU                                      (SYS_FLAGS + 0x3E)
-#define FLAG_0x83F                                                  (SYS_FLAGS + 0x3F)
+#define FLAG_SYS_CHEAT_NO_ENCOUNTERS                                (SYS_FLAGS + 0x3F) // was FLAG_0x83F
 #define FLAG_SYS_NATIONAL_DEX                                       (SYS_FLAGS + 0x40)
 #define FLAG_SYS_PC_STORAGE_DISABLED                                (SYS_FLAGS + 0x41)
 #define FLAG_SYS_INFORMED_OF_LOCAL_WIRELESS_PLAYER                  (SYS_FLAGS + 0x42)

@@ -187,7 +187,9 @@ u16 FreeAndDestroyPicSpriteInternal(u16 spriteId)
 
     for (i = 0; i < PICS_COUNT; i ++)
     {
-        if (sSpritePics[i].spriteId == spriteId)
+        // Inactive slots are zeroed (spriteId 0, paletteTag 0). Matching them
+        // without .active would FreeSpritePaletteByTag on garbage and crash.
+        if (sSpritePics[i].active && sSpritePics[i].spriteId == spriteId)
             break;
     }
     if (i == PICS_COUNT)
@@ -202,6 +204,17 @@ u16 FreeAndDestroyPicSpriteInternal(u16 spriteId)
     Free(images);
     sSpritePics[i] = sDummyPicData;
     return 0;
+}
+
+void FreeAllPicSprites(void)
+{
+    u8 i;
+
+    for (i = 0; i < PICS_COUNT; i++)
+    {
+        if (sSpritePics[i].active)
+            FreeAndDestroyPicSpriteInternal(sSpritePics[i].spriteId);
+    }
 }
 
 static u16 LoadPicSpriteInWindow(u16 species, u32 otId, u32 personality, bool8 isFrontPic, u8 paletteSlot, u8 windowId, bool8 isTrainer)

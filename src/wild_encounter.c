@@ -16,6 +16,7 @@
 #include "constants/maps.h"
 #include "constants/abilities.h"
 #include "constants/items.h"
+#include "constants/flags.h"
 
 #define MAX_ENCOUNTER_RATE 1600
 
@@ -358,6 +359,9 @@ bool8 StandardWildEncounter(u32 currMetatileAttrs, u16 previousMetatileBehavior)
     struct Roamer * roamer;
 
     if (sWildEncountersDisabled == TRUE)
+        return FALSE;
+    // Debug cheat: classic AR "no random battles" (grass/water/surf steps only).
+    if (FlagGet(FLAG_SYS_CHEAT_NO_ENCOUNTERS))
         return FALSE;
 
     headerId = GetCurrentMapWildMonHeaderId();

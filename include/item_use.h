@@ -34,6 +34,8 @@ void FieldUseFunc_FishLadder(u8 taskId);
 void FieldUseFunc_Titan(u8 taskId);
 void FieldUseFunc_RingLight(u8 taskId);
 void FieldUseFunc_AllExpShare(u8 taskId);
+void FieldUseFunc_ShinyCharm(u8 taskId);
+void FieldUseFunc_DebugMenu(u8 taskId);
 void FieldUseFunc_FameChecker(u8 taskId);
 void FieldUseFunc_VsSeeker(u8 taskId);
 void BattleUseFunc_PokeBallEtc(u8 taskId);

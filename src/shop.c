@@ -25,9 +25,11 @@
 #include "money.h"
 #include "quest_log.h"
 #include "script.h"
+#include "event_data.h"
 #include "constants/songs.h"
 #include "constants/items.h"
 #include "constants/game_stat.h"
+#include "constants/flags.h"
 #include "constants/field_weather.h"
 
 #define tItemCount data[1]
@@ -107,6 +109,7 @@ static bool8 BuyMenuBuildListMenuTemplate(void);
 static void PokeMartWriteNameAndIdAt(struct ListMenuItem *list, u16 index, u8 *dst);
 static void BuyMenuPrintItemDescriptionAndShowItemIcon(s32 item, bool8 onInit, struct ListMenu *list);
 static void BuyMenuPrintPriceInList(u8 windowId, u32 itemId, u8 y);
+static u16 Shop_GetBuyPrice(u16 itemId);
 static void LoadTmHmNameInMart(s32 item);
 static void BuyMenuPrintCursor(u8 listTaskId, u8 a1);
 static void BuyMenuPrintCursorAtYPosition(u8 y, u8 a1);
@@ -596,6 +599,13 @@ static void BuyMenuPrintItemDescriptionAndShowItemIcon(s32 item, bool8 onInit, s
     }
 }
 
+static u16 Shop_GetBuyPrice(u16 itemId)
+{
+    if (FlagGet(FLAG_SYS_CHEAT_FREE_MARTS))
+        return 0;
+    return ItemId_GetPrice(itemId);
+}
+
 static void BuyMenuPrintPriceInList(u8 windowId, u32 item, u8 y)
 {
     s32 x;
@@ -603,7 +613,7 @@ static void BuyMenuPrintPriceInList(u8 windowId, u32 item, u8 y)
 
     if (item != INDEX_CANCEL)
     {
-        ConvertIntToDecimalStringN(gStringVar1, ItemId_GetPrice(item), 0, 4);
+        ConvertIntToDecimalStringN(gStringVar1, Shop_GetBuyPrice(item), 0, 4);
         x = 4 - StringLength(gStringVar1);
         loc = gStringVar4;
         while (x-- != 0)
@@ -891,7 +901,7 @@ static void Task_BuyMenu(u8 taskId)
             BuyMenuRemoveScrollIndicatorArrows();
             BuyMenuPrintCursor(tListTaskId, 2);
             RecolorItemDescriptionBox(1);
-            sShopData.itemPrice = ItemId_GetPrice(itemId);
+            sShopData.itemPrice = Shop_GetBuyPrice(itemId);
             if (!IsEnoughMoney(&gSaveBlock1Ptr->money, sShopData.itemPrice))
             {
                 BuyMenuDisplayMessage(taskId, gText_YouDontHaveMoney, BuyMenuReturnToItemList);
@@ -920,7 +930,10 @@ static void Task_BuyHowManyDialogueInit(u8 taskId)
     BuyMenuQuantityBoxNormalBorder(3, 0);
     BuyMenuPrintItemQuantityAndPrice(taskId);
     ScheduleBgCopyTilemapToVram(0);
-    maxQuantity = GetMoney(&gSaveBlock1Ptr->money) / ItemId_GetPrice(tItemId);
+    if (Shop_GetBuyPrice(tItemId) == 0)
+        maxQuantity = 99;
+    else
+        maxQuantity = GetMoney(&gSaveBlock1Ptr->money) / Shop_GetBuyPrice(tItemId);
     if (maxQuantity > 99)
         sShopData.maxQuantity = 99;
     else
@@ -938,7 +951,7 @@ static void Task_BuyHowManyDialogueHandleInput(u8 taskId)
 
     if (AdjustQuantityAccordingToDPadInput(&tItemCount, sShopData.maxQuantity) == TRUE)
     {
-        sShopData.itemPrice = ItemId_GetPrice(tItemId) * tItemCount;
+        sShopData.itemPrice = Shop_GetBuyPrice(tItemId) * tItemCount;
         BuyMenuPrintItemQuantityAndPrice(taskId);
     }
     else
@@ -1100,7 +1113,10 @@ void RecordItemTransaction(u16 itemId, u16 quantity, u8 logEventId)
     {
         // logEventId will either be 1 (bought) or 2 (sold)
         // so for buying it will add the full price and selling will add half price
-        history->totalMoney += (ItemId_GetPrice(itemId) >> (logEventId - 1)) * quantity;
+        if (logEventId == 1)
+            history->totalMoney += Shop_GetBuyPrice(itemId) * quantity;
+        else
+            history->totalMoney += (ItemId_GetPrice(itemId) >> 1) * quantity;
         if (history->totalMoney > 999999)
             history->totalMoney = 999999;
     }

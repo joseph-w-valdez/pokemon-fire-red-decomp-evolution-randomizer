@@ -3,7 +3,7 @@
 This is a decompilation of English Pokémon FireRed and LeafGreen, used as the base for the **pokemon-random-evolution** romhack.
 
 **Hack ROM output:** `make` builds `pokemon-random-evolution-v{version}.gba`. Set the version in [`config.mk`](config.mk) (`HACK_VERSION`).  
-Features: [CHANGES.md](CHANGES.md) · Release notes: [CHANGELOG.md](CHANGELOG.md).
+Features: [CHANGES.md](CHANGES.md) · Release notes: [CHANGELOG.md](CHANGELOG.md) · Debug menu: [docs/debug_menu.md](docs/debug_menu.md).
 
 Vanilla pret ROM names (for reference / compare builds):
 

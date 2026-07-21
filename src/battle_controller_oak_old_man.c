@@ -1659,19 +1659,26 @@ static void OakOldManHandlePaletteFade(void)
 
 static void OakOldManHandleSuccessBallThrowAnim(void)
 {
+    u8 ballAnim = (gBattleTypeFlags & BATTLE_TYPE_OLD_MAN_TUTORIAL)
+                ? B_ANIM_BALL_THROW_WITH_TRAINER
+                : B_ANIM_BALL_THROW;
+
     gBattleSpritesDataPtr->animationData->ballThrowCaseId = BALL_3_SHAKES_SUCCESS;
     gDoingBattleAnim = TRUE;
-    InitAndLaunchSpecialAnimation(gActiveBattler, gActiveBattler, GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT), B_ANIM_BALL_THROW_WITH_TRAINER);
+    InitAndLaunchSpecialAnimation(gActiveBattler, gActiveBattler, GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT), ballAnim);
     gBattlerControllerFuncs[gActiveBattler] = CompleteOnSpecialAnimDone;
 }
 
 static void OakOldManHandleBallThrowAnim(void)
 {
     u8 ballThrowCaseId = gBattleBufferA[gActiveBattler][1];
+    u8 ballAnim = (gBattleTypeFlags & BATTLE_TYPE_OLD_MAN_TUTORIAL)
+                ? B_ANIM_BALL_THROW_WITH_TRAINER
+                : B_ANIM_BALL_THROW;
 
     gBattleSpritesDataPtr->animationData->ballThrowCaseId = ballThrowCaseId;
     gDoingBattleAnim = TRUE;
-    InitAndLaunchSpecialAnimation(gActiveBattler, gActiveBattler, GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT), B_ANIM_BALL_THROW_WITH_TRAINER);
+    InitAndLaunchSpecialAnimation(gActiveBattler, gActiveBattler, GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT), ballAnim);
     gBattlerControllerFuncs[gActiveBattler] = CompleteOnSpecialAnimDone;
 }
 

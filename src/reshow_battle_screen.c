@@ -8,6 +8,7 @@
 #include "battle_interface.h"
 #include "battle_anim.h"
 #include "battle_controllers.h"
+#include "util.h"
 
 static void CB2_ReshowBattleScreenAfterMenu(void);
 static void ReshowBattleScreen_TurnOnDisplay(void);
@@ -145,14 +146,24 @@ static void CB2_ReshowBattleScreenAfterMenu(void)
         LoadAndCreateEnemyShadowSprites();
         opponentBattler = GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT);
         species = GetMonData(&gEnemyParty[gBattlerPartyIndexes[opponentBattler]], MON_DATA_SPECIES);
-        SetBattlerShadowSpriteCallback(opponentBattler, species);
+        if (GetMonData(&gEnemyParty[gBattlerPartyIndexes[opponentBattler]], MON_DATA_HP) == 0)
+            HideBattlerShadowSprite(opponentBattler);
+        else
+            SetBattlerShadowSpriteCallback(opponentBattler, species);
         if (IsDoubleBattle())
         {
             opponentBattler = GetBattlerAtPosition(B_POSITION_OPPONENT_RIGHT);
             species = GetMonData(&gEnemyParty[gBattlerPartyIndexes[opponentBattler]], MON_DATA_SPECIES);
-            SetBattlerShadowSpriteCallback(opponentBattler, species);
+            if (GetMonData(&gEnemyParty[gBattlerPartyIndexes[opponentBattler]], MON_DATA_HP) == 0)
+                HideBattlerShadowSprite(opponentBattler);
+            else
+                SetBattlerShadowSpriteCallback(opponentBattler, species);
         }
-        ActionSelectionCreateCursorAt(gActionSelectionCursor[gBattlerInMenuId], 0);
+        // Don't leave an action cursor if the field mon is gone (e.g. post-steal reshow).
+        if (GetMonData(&gEnemyParty[gBattlerPartyIndexes[GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT)]], MON_DATA_HP) != 0
+         || (IsDoubleBattle()
+             && GetMonData(&gEnemyParty[gBattlerPartyIndexes[GetBattlerAtPosition(B_POSITION_OPPONENT_RIGHT)]], MON_DATA_HP) != 0))
+            ActionSelectionCreateCursorAt(gActionSelectionCursor[gBattlerInMenuId], 0);
         if (gWirelessCommType && gReceivedRemoteLinkPlayers)
         {
             LoadWirelessStatusIndicatorSpriteGfx();
@@ -194,6 +205,12 @@ static bool8 LoadBattlerSpriteGfx(u8 battler)
     {
         if (GetBattlerSide(battler) != B_SIDE_PLAYER)
         {
+            // Caught/fainted field mon has no sprite; loading its gfx pollutes VRAM before send-out.
+            if (GetMonData(&gEnemyParty[gBattlerPartyIndexes[battler]], MON_DATA_HP) == 0)
+            {
+                gBattleScripting.reshowHelperState = 0;
+                return TRUE;
+            }
             if (IS_BATTLE_TYPE_GHOST_WITHOUT_SCOPE(gBattleTypeFlags))
                 DecompressGhostFrontPic(&gEnemyParty[gBattlerPartyIndexes[battler]], battler);
             else if (!gBattleSpritesDataPtr->battlerData[battler].behindSubstitute)
@@ -205,6 +222,11 @@ static bool8 LoadBattlerSpriteGfx(u8 battler)
             DecompressTrainerBackPalette(gSaveBlock2Ptr->playerGender, battler);
         else if (gBattleTypeFlags & BATTLE_TYPE_OLD_MAN_TUTORIAL && battler == B_POSITION_PLAYER_LEFT) // Should be checking position, not battler.
             DecompressTrainerBackPalette(TRAINER_BACK_PIC_OLD_MAN, battler);
+        else if (GetMonData(&gPlayerParty[gBattlerPartyIndexes[battler]], MON_DATA_HP) == 0)
+        {
+            gBattleScripting.reshowHelperState = 0;
+            return TRUE;
+        }
         else if (!gBattleSpritesDataPtr->battlerData[battler].behindSubstitute)
             BattleLoadPlayerMonSpriteGfx(&gPlayerParty[gBattlerPartyIndexes[battler]], battler);
         else
@@ -228,8 +250,12 @@ static void CreateBattlerSprite(u8 battler)
             posY = GetBattlerSpriteDefault_Y(battler);
         if (GetBattlerSide(battler) != B_SIDE_PLAYER)
         {
+            // Still assign a sprite id so trainerslidein / shadows don't follow a stale OAM slot.
             if (GetMonData(&gEnemyParty[gBattlerPartyIndexes[battler]], MON_DATA_HP) == 0)
+            {
+                gBattlerSpriteIds[battler] = CreateInvisibleSpriteWithCallback(SpriteCallbackDummy);
                 return;
+            }
             SetMultiuseSpriteTemplateToPokemon(GetMonData(&gEnemyParty[gBattlerPartyIndexes[battler]], MON_DATA_SPECIES), GetBattlerPosition(battler));
             gBattlerSpriteIds[battler] = CreateSprite(&gMultiuseSpriteTemplate, GetBattlerSpriteCoord(battler, BATTLER_COORD_X_2), posY, GetBattlerSpriteSubpriority(battler));
             gSprites[gBattlerSpriteIds[battler]].oam.paletteNum = battler;
@@ -260,6 +286,7 @@ static void CreateBattlerSprite(u8 battler)
         }
         else if (GetMonData(&gPlayerParty[gBattlerPartyIndexes[battler]], MON_DATA_HP) == 0)
         {
+            gBattlerSpriteIds[battler] = CreateInvisibleSpriteWithCallback(SpriteCallbackDummy);
             return;
         }
         else

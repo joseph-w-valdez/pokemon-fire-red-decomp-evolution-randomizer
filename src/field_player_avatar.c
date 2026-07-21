@@ -27,6 +27,7 @@
 #include "constants/metatile_behaviors.h"
 #include "constants/moves.h"
 #include "constants/trainer_types.h"
+#include "constants/flags.h"
 
 static EWRAM_DATA struct ObjectEvent * sPlayerObjectPtr = NULL;
 static EWRAM_DATA u8 sTeleportSavedFacingDirection = DIR_NONE;
@@ -560,6 +561,9 @@ static u8 CheckForPlayerAvatarCollision(u8 direction)
 {
     s16 x, y;
     struct ObjectEvent *playerObjEvent = &gObjectEvents[gPlayerAvatar.objectEventId];
+
+    if (FlagGet(FLAG_SYS_CHEAT_WALK_WALLS))
+        return COLLISION_NONE;
 
     x = playerObjEvent->currentCoords.x;
     y = playerObjEvent->currentCoords.y;

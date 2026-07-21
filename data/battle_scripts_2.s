@@ -74,6 +74,7 @@ BattleScript_SuccessBallThrow::
 	jumpifhalfword CMP_EQUAL, gLastUsedItem, ITEM_SAFARI_BALL, BattleScript_SafariNoIncGameStat
 	incrementgamestat GAME_STAT_POKEMON_CAPTURES
 BattleScript_SafariNoIncGameStat::
+	jumpifbattletype BATTLE_TYPE_TRAINER, BattleScript_BallThrowSteal
 	printstring STRINGID_GOTCHAPKMNCAUGHT
 	trysetcaughtmondexflags BattleScript_CaughtPokemonSkipNewDex
 	printstring STRINGID_PKMNDATAADDEDTODEX
@@ -95,6 +96,39 @@ BattleScript_CaughtPokemonSkipNickname::
 BattleScript_CaughtPokemonDone::
 	setbyte gBattleOutcome, B_OUTCOME_CAUGHT
 	finishturn
+
+@ Steal: faint+exp, full dex page + nickname, give with NPC OT, bag-style reshow, continue.
+@ Faint markers + catch HP prepared in Cmd_handleballthrow.
+BattleScript_BallThrowSteal::
+	printstring STRINGID_GOTCHAPKMNCAUGHTNOBGM
+	waitmessage B_WAIT_TIME_LONG
+	cleareffectsonfaint BS_TARGET
+	setbyte sGIVEEXP_STATE, 0
+	getexp BS_TARGET
+	trysetcaughtmondexflags BattleScript_BallThrowStealSkipNewDex
+	printstring STRINGID_PKMNDATAADDEDTODEX
+	waitstate
+	setbyte gBattleCommunication, 0
+	displaydexinfo
+BattleScript_BallThrowStealSkipNewDex::
+	printstring STRINGID_GIVENICKNAMECAPTURED
+	waitstate
+	setbyte gBattleCommunication, 0
+	trygivecaughtmonnick BattleScript_BallThrowStealSkipNickname
+	givecaughtmon
+	jumpifbyte CMP_EQUAL, cMULTISTRING_CHOOSER, 0xFF, BattleScript_BallThrowStealReshow
+	printfromtable gCaughtMonStringIds
+	waitmessage B_WAIT_TIME_LONG
+	goto BattleScript_BallThrowStealReshow
+BattleScript_BallThrowStealSkipNickname::
+	givecaughtmon
+	jumpifbyte CMP_EQUAL, cMULTISTRING_CHOOSER, 0xFF, BattleScript_BallThrowStealReshow
+	printfromtable gCaughtMonStringIds
+	waitmessage B_WAIT_TIME_LONG
+BattleScript_BallThrowStealReshow::
+	setbyte gBattleCommunication, 0
+	reshowbattlescreen
+	goto BattleScript_HandleFaintedMon
 
 BattleScript_OldMan_Pokedude_CaughtMessage::
 	printstring STRINGID_GOTCHAPKMNCAUGHT2

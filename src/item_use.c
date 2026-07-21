@@ -34,6 +34,7 @@
 #include "task.h"
 #include "teachy_tv.h"
 #include "tm_case.h"
+#include "rh_debug_menu.h"
 #include "vs_seeker.h"
 #include "constants/sound.h"
 #include "constants/items.h"
@@ -66,6 +67,10 @@ static void Task_InitBerryPouchFromField(u8 taskId);
 static void InitBerryPouchFromBattle(void);
 static void InitTeachyTvFromBag(void);
 static void Task_InitTeachyTvFromField(u8 taskId);
+#if RH_DEBUG_MENU
+static void InitRhDebugMenuFromBag(void);
+static void Task_InitRhDebugMenuFromField(u8 taskId);
+#endif
 static void Task_UseRepel(u8 taskId);
 static void RemoveUsedItem(void);
 static void Task_UsedBlackWhiteFlute(u8 taskId);
@@ -395,6 +400,28 @@ void FieldUseFunc_AllExpShare(u8 taskId)
         DisplayItemMessageOnField(taskId, FONT_NORMAL, msg, Task_ItemUse_CloseMessageBoxAndReturnToField);
 }
 
+void FieldUseFunc_ShinyCharm(u8 taskId)
+{
+    const u8 *msg;
+
+    if (FlagGet(FLAG_SYS_SHINY_CHARM))
+    {
+        FlagClear(FLAG_SYS_SHINY_CHARM);
+        msg = gText_ShinyCharmOff;
+    }
+    else
+    {
+        FlagSet(FLAG_SYS_SHINY_CHARM);
+        msg = gText_ShinyCharmOn;
+    }
+
+    ItemUse_SetQuestLogEvent(QL_EVENT_USED_ITEM, NULL, gSpecialVar_ItemId, 0xFFFF);
+    if (gTasks[taskId].data[3] == 0)
+        DisplayItemMessageInBag(taskId, FONT_NORMAL, msg, Task_ReturnToBagFromContextMenu);
+    else
+        DisplayItemMessageOnField(taskId, FONT_NORMAL, msg, Task_ItemUse_CloseMessageBoxAndReturnToField);
+}
+
 void FieldUseFunc_PowderJar(u8 taskId)
 {
     ConvertIntToDecimalStringN(gStringVar1, GetBerryPowder(), STR_CONV_MODE_LEFT_ALIGN, 5);
@@ -596,6 +623,46 @@ static void Task_InitTeachyTvFromField(u8 taskId)
         DestroyTask(taskId);
     }
 }
+
+void FieldUseFunc_DebugMenu(u8 taskId)
+{
+#if RH_DEBUG_MENU
+    ItemUse_SetQuestLogEvent(QL_EVENT_USED_ITEM, NULL, gSpecialVar_ItemId, 0xFFFF);
+    if (gTasks[taskId].data[3] == 0)
+    {
+        ItemMenu_SetExitCallback(InitRhDebugMenuFromBag);
+        ItemMenu_StartFadeToExitCallback(taskId);
+    }
+    else
+    {
+        StopPokemonLeagueLightingEffectTask();
+        FadeScreen(FADE_TO_BLACK, 0);
+        gTasks[taskId].func = Task_InitRhDebugMenuFromField;
+    }
+#else
+    FieldUseFunc_OakStopsYou(taskId);
+#endif
+}
+
+#if RH_DEBUG_MENU
+static void InitRhDebugMenuFromBag(void)
+{
+    gMain.savedCallback = CB2_BagMenuFromStartMenu;
+    CB2_OpenRhDebugMenu();
+}
+
+static void Task_InitRhDebugMenuFromField(u8 taskId)
+{
+    if (!gPaletteFade.active)
+    {
+        CleanupOverworldWindowsAndTilemaps();
+        SetFieldCallback2ForItemUse();
+        gMain.savedCallback = CB2_ReturnToField;
+        CB2_OpenRhDebugMenu();
+        DestroyTask(taskId);
+    }
+}
+#endif
 
 void FieldUseFunc_Repel(u8 taskId)
 {

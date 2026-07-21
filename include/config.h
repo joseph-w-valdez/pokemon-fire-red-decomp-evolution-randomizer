@@ -103,10 +103,10 @@
 #define RH_SKIP_QUEST_LOG_INTRO    TRUE
 #define RH_FAST_BATTLES            TRUE
 #define RH_SKIP_CONTROLS_GUIDE     TRUE
-// When TRUE, skip Viridian catch tutorial (remove old man after Oak's Parcel)
-// AND grant Teachy TV at new game. When FALSE, restore vanilla tutorial flow
-// and do not auto-grant Teachy TV.
+// When TRUE, skip Viridian catch tutorial (remove old man after Oak's Parcel) AND grant Teachy TV at new game
 #define RH_SKIP_CATCH_TUTORIAL     TRUE
+// When TRUE, grant/keep the Debug Menu key item (synced on new game and continue); when FALSE, remove it if present
+#define RH_DEBUG_MENU              TRUE
 
 // ---- Tunable values (used when the matching RH_* toggle is TRUE) ----
 // Tweak these instead of hunting magic numbers through src/.
