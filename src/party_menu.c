@@ -24,6 +24,7 @@
 #include "item.h"
 #include "item_menu.h"
 #include "item_use.h"
+#include "rh_stat_editor.h"
 #include "link.h"
 #include "link_rfu.h"
 #include "load_save.h"
@@ -5207,6 +5208,14 @@ void ItemUseCB_SacredAsh(u8 taskId, TaskFunc func)
     sPartyMenuInternal->tHadEffect = FALSE;
     sPartyMenuInternal->tLastSlotUsed = gPartyMenu.slotId;
     UseSacredAsh(taskId);
+}
+
+void ItemUseCB_StatMakeover(u8 taskId, TaskFunc func)
+{
+    PlaySE(SE_SELECT);
+    RhStatEditor_SetPending(gPartyMenu.slotId, gSpecialVar_ItemId);
+    sPartyMenuInternal->exitCallback = CB2_OpenStatEditor;
+    Task_ClosePartyMenu(taskId);
 }
 
 static void UseSacredAsh(u8 taskId)

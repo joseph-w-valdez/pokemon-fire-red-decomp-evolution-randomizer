@@ -16,6 +16,7 @@
 #include "rh_debug_menu.h"
 #include "scrollbar.h"
 #include "framed_panel.h"
+#include "ui_theme.h"
 #include "rh_log.h"
 #include "constants/heal_locations.h"
 #include "constants/items.h"
@@ -159,7 +160,7 @@ static EWRAM_DATA struct ListMenuItem sGiveMenuItems[GIVE_MENU_ITEMS_MAX];
 static EWRAM_DATA u8 sScrollbarTaskId = SCROLLBAR_NONE;
 static EWRAM_DATA u16 sScrollbarScroll = 0;
 
-static const u8 sText_FooterRoot[] = _("Press {L_BUTTON} to close the menu");
+static const u8 sText_FooterRoot[] = _("L: Close    SELECT: Theme");
 static const u8 sText_FooterGiveFolders[] = _("{A_BUTTON} Open    {B_BUTTON} Back    {L_BUTTON} Close");
 static const u8 sText_FooterGiveItems[] = _("{DPAD_UPDOWN} Scroll    {A_BUTTON} Select    {B_BUTTON} Back");
 static const u8 sText_FooterGiveQty[] = _("{DPAD_UPDOWN} Qty    {A_BUTTON} Give    {B_BUTTON} Back");
@@ -2341,6 +2342,11 @@ static void Task_RhDebugMenu(u8 taskId)
             RhDebugMenu_BeginClose(taskId);
             break;
         }
+        if (JOY_NEW(SELECT_BUTTON))
+        {
+            UiTheme_Cycle(TRUE);
+            break;
+        }
 
         switch (gTasks[taskId].tPage)
         {
@@ -2447,8 +2453,8 @@ static void InitRhDebugMenuGfx(void)
     ScanlineEffect_Stop();
 
     LoadStdWindowGfx(WIN_LIST, 0x1C0, BG_PLTT_ID(14));
-    // Same std palette on 15 so list text and scrollbar can use frame colors (e.g. border 13).
-    LoadPalette(GetTextWindowPalette(3), BG_PLTT_ID(15), PLTT_SIZE_4BPP);
+    // Shared UI themes on pals 14+15 (+ gap on 0). SELECT cycles in-menu.
+    UiTheme_ApplyStdWindow();
     FillBgTilemapBufferRect_Palette0(0, 0, 0, 0, 32, 32);
     CopyBgTilemapBufferToVram(0);
 

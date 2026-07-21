@@ -107,6 +107,10 @@
 #define RH_SKIP_CATCH_TUTORIAL     TRUE
 // When TRUE, grant/keep the Debug Menu key item (synced on new game and continue); when FALSE, remove it if present
 #define RH_DEBUG_MENU              TRUE
+// FULL MAKEOVER item (Celadon 5F vitamins clerk + party-use editor). FALSE = hide from shop / block Use
+#define RH_STAT_MAKEOVER           TRUE
+// When TRUE, Help is removed from Button Mode; new game / continue default or migrate to L=A
+#define RH_DISABLE_HELP_LR         TRUE
 
 // ---- Tunable values (used when the matching RH_* toggle is TRUE) ----
 // Tweak these instead of hunting magic numbers through src/.
@@ -146,5 +150,10 @@
 
 // Pokérus strain byte applied by the Cerulean Gentleman (high nibble=strain, low=days)
 #define RH_POKERUS_INFECT_VALUE    0xF4
+
+// MAKEOVER mart / ItemId_GetPrice override (u16; shop list shows up to 6 digits). Vitamins are 9800.
+#if RH_STAT_MAKEOVER
+#define RH_MAKEOVER_PRICE          49800
+#endif
 
 #endif // GUARD_CONFIG_H

@@ -620,7 +620,12 @@ u16 ItemId_GetId(u16 itemId)
 
 u16 ItemId_GetPrice(u16 itemId)
 {
-    return gItems[SanitizeItemId(itemId)].price;
+    itemId = SanitizeItemId(itemId);
+#if RH_STAT_MAKEOVER
+    if (itemId == ITEM_FULL_MAKEOVER)
+        return RH_MAKEOVER_PRICE;
+#endif
+    return gItems[itemId].price;
 }
 
 u8 ItemId_GetHoldEffect(u16 itemId)

@@ -9,6 +9,10 @@
 #define RGB2(r, g, b) (((b) << 10) | ((g) << 5) | (r))
 #define _RGB(r, g, b) ((((b) & 0x1F) << 10) + (((g) & 0x1F) << 5) + ((r) & 0x1F))
 
+// 8-bit (0–255) and 0xRRGGBB helpers → 15-bit GBA color.
+#define RGB8(r, g, b) RGB(((r) * 31 / 255), ((g) * 31 / 255), ((b) * 31 / 255))
+#define RGB_HEX(hex)  RGB8(((hex) >> 16) & 0xFF, ((hex) >> 8) & 0xFF, (hex) & 0xFF)
+
 #define RGB_ALPHA       (1 << 15)
 #define IS_ALPHA(color) ((color) & RGB_ALPHA)
 

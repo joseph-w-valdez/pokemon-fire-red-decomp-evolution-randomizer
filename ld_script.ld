@@ -169,6 +169,13 @@ SECTIONS {
         src/rh_log.o(.text);
         src/scrollbar.o(.text);
         src/framed_panel.o(.text);
+        src/value_slider.o(.text);
+        src/mon_portrait.o(.text);
+        src/stat_radar.o(.text);
+        src/bg_pal_slots.o(.text);
+        src/footer_strip.o(.text);
+        src/ui_theme.o(.text);
+        src/rh_stat_editor.o(.text);
         src/battle_anim_effects_1.o(.text);
         src/battle_anim_effects_2.o(.text);
         src/battle_anim_water.o(.text);
@@ -485,6 +492,13 @@ SECTIONS {
         src/rh_log.o(.rodata);
         src/scrollbar.o(.rodata);
         src/framed_panel.o(.rodata);
+        src/value_slider.o(.rodata);
+        src/mon_portrait.o(.rodata);
+        src/stat_radar.o(.rodata);
+        src/bg_pal_slots.o(.rodata);
+        src/footer_strip.o(.rodata);
+        src/ui_theme.o(.rodata);
+        src/rh_stat_editor.o(.rodata);
         src/battle_anim_effects_1.o(.rodata);
         src/battle_anim_effects_2.o(.rodata);
         src/battle_anim_water.o(.rodata);
