@@ -15,6 +15,7 @@
 #include "text_window.h"
 #include "rh_debug_menu.h"
 #include "scrollbar.h"
+#include "framed_panel.h"
 #include "rh_log.h"
 #include "constants/heal_locations.h"
 #include "constants/items.h"
@@ -745,11 +746,7 @@ static void RhDebugMenu_BeginClose(u8 taskId)
 
 static void RhDebugMenu_PrintFooter(const u8 *str)
 {
-    FillWindowPixelBuffer(WIN_FOOTER, PIXEL_FILL(1));
-    DrawStdFrameWithCustomTileAndPalette(WIN_FOOTER, FALSE, 0x1C0, 14);
-    AddTextPrinterParameterized3(WIN_FOOTER, FONT_SMALL, 4, 4, sTextColors, TEXT_SKIP_DRAW, str);
-    PutWindowTilemap(WIN_FOOTER);
-    CopyWindowToVram(WIN_FOOTER, COPYWIN_FULL);
+    FramedPanel_ShowText(WIN_FOOTER, str, sTextColors, NULL);
 }
 
 static const struct ScrollbarConfig sScrollbarConfig =
@@ -829,10 +826,7 @@ static void RhDebugMenu_ShowRoot(u8 taskId)
     RhDebugMenu_DestroyList(taskId);
     gTasks[taskId].tPage = PAGE_ROOT;
 
-    FillWindowPixelBuffer(WIN_LIST, PIXEL_FILL(1));
-    DrawStdFrameWithCustomTileAndPalette(WIN_LIST, FALSE, 0x1C0, 14);
-    PutWindowTilemap(WIN_LIST);
-    CopyWindowToVram(WIN_LIST, COPYWIN_FULL);
+    FramedPanel_ShowEmpty(WIN_LIST, NULL);
     RhDebugMenu_PrintFooter(sText_FooterRoot);
 
     template.items = sRootItems;
@@ -847,8 +841,7 @@ static void RhDebugMenu_RedrawGiveQty(u8 taskId)
     u8 line[64];
     const u8 *name = ItemId_GetName(sGiveItemId);
 
-    FillWindowPixelBuffer(WIN_LIST, PIXEL_FILL(1));
-    DrawStdFrameWithCustomTileAndPalette(WIN_LIST, FALSE, 0x1C0, 14);
+    FramedPanel_Reset(WIN_LIST, NULL);
 
     AddTextPrinterParameterized3(WIN_LIST, FONT_NORMAL, 8, 8, sTextColors, TEXT_SKIP_DRAW, name);
 
@@ -859,8 +852,7 @@ static void RhDebugMenu_RedrawGiveQty(u8 taskId)
     StringAppend(&line[2], buf);
     AddTextPrinterParameterized3(WIN_LIST, FONT_NORMAL, 8, 24, sTextColors, TEXT_SKIP_DRAW, line);
 
-    PutWindowTilemap(WIN_LIST);
-    CopyWindowToVram(WIN_LIST, COPYWIN_FULL);
+    FramedPanel_Flush(WIN_LIST);
 }
 
 static bool8 RhDebugMenu_GiveFolderHasSubs(u8 folder)
@@ -1134,10 +1126,7 @@ static void RhDebugMenu_InitList(u8 taskId, u8 page, const struct ListMenuItem *
     RhDebugMenu_DestroyList(taskId);
     gTasks[taskId].tPage = page;
 
-    FillWindowPixelBuffer(WIN_LIST, PIXEL_FILL(1));
-    DrawStdFrameWithCustomTileAndPalette(WIN_LIST, FALSE, 0x1C0, 14);
-    PutWindowTilemap(WIN_LIST);
-    CopyWindowToVram(WIN_LIST, COPYWIN_FULL);
+    FramedPanel_ShowEmpty(WIN_LIST, NULL);
     RhDebugMenu_PrintFooter(footer);
 
     template.items = items;
@@ -1434,8 +1423,7 @@ static void RhDebugMenu_RedrawCheats(u8 taskId)
     scroll = gTasks[taskId].tCheatScroll;
     cursor = gTasks[taskId].tGiveSub;
 
-    FillWindowPixelBuffer(WIN_LIST, PIXEL_FILL(1));
-    DrawStdFrameWithCustomTileAndPalette(WIN_LIST, FALSE, 0x1C0, 14);
+    FramedPanel_Reset(WIN_LIST, NULL);
 
     for (i = scroll, drawn = 0; i < rowCount && drawn < CHEAT_LIST_SHOW; i++, drawn++)
     {
@@ -1506,8 +1494,7 @@ static void RhDebugMenu_RedrawCheats(u8 taskId)
         }
     }
 
-    PutWindowTilemap(WIN_LIST);
-    CopyWindowToVram(WIN_LIST, COPYWIN_FULL);
+    FramedPanel_Flush(WIN_LIST);
 }
 
 static void RhDebugMenu_ShowCheatFolders(u8 taskId)
@@ -1527,10 +1514,7 @@ static void RhDebugMenu_ShowCheatResetConfirm(u8 taskId)
     RhDebugMenu_DestroyList(taskId);
     gTasks[taskId].tPage = PAGE_CHEAT_RESET_CONFIRM;
 
-    FillWindowPixelBuffer(WIN_LIST, PIXEL_FILL(1));
-    DrawStdFrameWithCustomTileAndPalette(WIN_LIST, FALSE, 0x1C0, 14);
-    PutWindowTilemap(WIN_LIST);
-    CopyWindowToVram(WIN_LIST, COPYWIN_FULL);
+    FramedPanel_ShowEmpty(WIN_LIST, NULL);
     RhDebugMenu_PrintFooter(sText_CheatResetPrompt);
 
     template.items = sCheatResetConfirmItems;
@@ -1717,8 +1701,7 @@ static void RhDebugMenu_RedrawEvents(u8 taskId)
     cursor = gTasks[taskId].tEventCursor;
     sScrollbarScroll = scroll;
 
-    FillWindowPixelBuffer(WIN_LIST, PIXEL_FILL(1));
-    DrawStdFrameWithCustomTileAndPalette(WIN_LIST, FALSE, 0x1C0, 14);
+    FramedPanel_Reset(WIN_LIST, NULL);
 
     for (i = scroll, drawn = 0; i < rowCount && drawn < EVENT_LIST_SHOW; i++, drawn++)
     {
@@ -1758,8 +1741,7 @@ static void RhDebugMenu_RedrawEvents(u8 taskId)
                                      events[cursor].desc);
     }
 
-    PutWindowTilemap(WIN_LIST);
-    CopyWindowToVram(WIN_LIST, COPYWIN_FULL);
+    FramedPanel_Flush(WIN_LIST);
 }
 
 static void RhDebugMenu_ShowEvents(u8 taskId, u8 folder, u8 sub)
@@ -1944,8 +1926,7 @@ static void RhDebugMenu_RedrawLog(u8 taskId)
     gTasks[taskId].tLogScroll = scroll;
     sScrollbarScroll = scroll;
 
-    FillWindowPixelBuffer(WIN_LIST, PIXEL_FILL(1));
-    DrawStdFrameWithCustomTileAndPalette(WIN_LIST, FALSE, 0x1C0, 14);
+    FramedPanel_Reset(WIN_LIST, NULL);
 
     if (count == 0)
     {
@@ -1961,8 +1942,7 @@ static void RhDebugMenu_RedrawLog(u8 taskId)
         }
     }
 
-    PutWindowTilemap(WIN_LIST);
-    CopyWindowToVram(WIN_LIST, COPYWIN_FULL);
+    FramedPanel_Flush(WIN_LIST);
 }
 
 static void RhDebugMenu_HandleLogInput(u8 taskId)

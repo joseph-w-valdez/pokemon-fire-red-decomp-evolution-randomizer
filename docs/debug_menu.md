@@ -257,6 +257,7 @@ You can append `{ FLAG_*, name, desc }` to a `sEvents_*` array in `rh_debug_even
 | Overlay UI + sync | `src/rh_debug_menu.c`, `include/rh_debug_menu.h` |
 | Log ring buffer | `src/rh_log.c`, `include/rh_log.h` |
 | Scrollbar (shared) | `src/scrollbar.c`, `include/scrollbar.h` |
+| Framed panel (shared) | `src/framed_panel.c`, `include/framed_panel.h` |
 | Give item catalogs | `src/data/rh_debug_give.h` |
 | Events catalogs | `src/data/rh_debug_events.h` (from `tools/gen_rh_debug_events.py`) |
 | Bag Use | `src/item_use.c` → `FieldUseFunc_DebugMenu` |
@@ -436,6 +437,8 @@ Window layout: `sWinTemplates` (`WIN_LIST`, `WIN_SCROLL`, `WIN_FOOTER`).
 Scrollable lists show a proportional scrollbar in `WIN_SCROLL` (one tile past the std-frame right border, col 29) via the shared [`scrollbar`](../include/scrollbar.h) module. If the list fits on screen, that window stays unmapped so it never covers the frame.
 
 The scrollbar paints into a caller-owned window: size/position come from the `WindowTemplate`, colors/pads/`highlightColor`/`taskPriority` from `ScrollbarConfig`. Map/unmap and palette load stay in the menu.
+
+List and footer chrome use [`framed_panel`](../include/framed_panel.h): `FramedPanel_Reset` (fill + std frame), `FramedPanel_Flush` (map + copy), `FramedPanel_ShowEmpty`, `FramedPanel_ShowText` (footer/prompts). Caller still owns window templates and `LoadStdWindowGfx`.
 
 ---
 

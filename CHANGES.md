@@ -46,6 +46,7 @@ For versioned release notes, see [CHANGELOG.md](CHANGELOG.md).
   - **Events** — nested story/progress flag toggles (~368) with short selected-row descs ([`src/data/rh_debug_events.h`](src/data/rh_debug_events.h), from [`tools/gen_rh_debug_events.py`](tools/gen_rh_debug_events.py))
   - **Log** — heap ring-buffer console (`RhLog` / `RhLogf`, newest at top, **A** clears/frees); auto-logs menu open / give / warp / cheat / event toggles
   - Scrollable lists use the shared scrollbar module ([`src/scrollbar.c`](src/scrollbar.c))
+  - Framed panels / footers use [`framed_panel`](include/framed_panel.h) (`Reset` / `Flush` / `ShowEmpty` / `ShowText`)
 - Cheat battle/field hooks: God Mode, Infinite PP, accuracy / catch / shiny overrides, catch trainer Pokémon (mid-battle UI — [docs/mid_battle_ui_pitfalls.md](docs/mid_battle_ui_pitfalls.md)), free marts, always obey, max IVs on create, no wild encounters, instant egg hatch, walk through walls
 
 ### Story / map fixes
@@ -60,10 +61,12 @@ For versioned release notes, see [CHANGELOG.md](CHANGELOG.md).
 ## Planned
 
 ### Reusable UI components
-Same “caller owns the window / config paints” split as the shared scrollbar (`src/scrollbar.c`). Likely order: panel + footer first, then toggle row + confirm.
+Same “caller owns the window / config paints” split as the shared scrollbar (`src/scrollbar.c`).
 
-- **Std framed panel** — `Fill` + `DrawStdFrame` + map/unmap helper
-- **Footer / control bar** — framed prompt row (`{A} Open`, `{B} Back`, `{L} Close`, etc.)
+**Done:** std framed panel + text strip — [`include/framed_panel.h`](include/framed_panel.h) / [`src/framed_panel.c`](src/framed_panel.c) (`FramedPanel_Reset` / `Flush` / `ShowEmpty` / `ShowText`). Debug menu list + footer use it.
+
+Likely next:
+
 - **Value / toggle row** — label + `FALSE ▶ TRUE` or cycled enums (cheat-style strips)
 - **Confirm modal** — YES/NO overlay with default-cursor and callback (Reset All pattern)
 - **Scrollable custom list** — cursor/scroll owner + row painter (unify ListMenu pages vs hand-drawn cheat list)
