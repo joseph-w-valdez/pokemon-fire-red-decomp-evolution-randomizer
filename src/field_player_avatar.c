@@ -509,8 +509,11 @@ static void PlayerNotOnBikeMoving(u8 direction, u16 heldKeys)
 
     if (gPlayerAvatar.flags & PLAYER_AVATAR_FLAG_SURFING)
     {
-        // Match buffed bike speed (8× original walk).
-        PlayerWalkFastest(direction);
+#if RH_FAST_MOVEMENT
+        PlayerWalkAtPx(direction, RH_SURF_PX_PER_FRAME);
+#else
+        PlayerWalkFast(direction);
+#endif
         return;
     }
 
@@ -681,7 +684,9 @@ void SetPlayerAvatarTransitionFlags(u16 flags)
 {
     gPlayerAvatar.transitionFlags |= flags;
     DoPlayerAvatarTransition();
+#if OW_FOLLOWERS_ENABLED
     FollowMe_HandleBike();
+#endif
 }
 
 static void (*const sPlayerAvatarTransitionFuncs[])(struct ObjectEvent *) = {
@@ -842,10 +847,29 @@ void PlayerWalkSlow(u8 direction)
     PlayerSetAnimId(GetWalkSlowMovementAction(direction), 2);
 }
 
+static u8 GetMovementActionForPx(u8 direction, u8 pxPerFrame)
+{
+    switch (pxPerFrame)
+    {
+    case 1:
+        return GetWalkNormalMovementAction(direction);
+    case 2:
+        return GetWalkFastMovementAction(direction);
+    case 4:
+        return GetWalkFasterMovementAction(direction);
+    case 8:
+    default:
+        return GetSlideMovementAction(direction);
+    }
+}
+
 void PlayerWalkNormal(u8 direction)
 {
-    // Use the old running speed (2 pixels/frame) for normal walking.
-    PlayerSetAnimId(GetWalkFastMovementAction(direction), 2);
+#if RH_FAST_MOVEMENT
+    PlayerWalkAtPx(direction, RH_WALK_PX_PER_FRAME);
+#else
+    PlayerSetAnimId(GetWalkNormalMovementAction(direction), 2);
+#endif
 }
 
 void PlayerWalkFast(u8 direction)
@@ -870,8 +894,16 @@ void PlayerWalkFaster(u8 direction)
 
 void PlayerWalkFastest(u8 direction)
 {
-    // 8 pixels/frame — twice running speed. Reuses slide step/anim tables.
+#if RH_FAST_MOVEMENT
+    PlayerWalkAtPx(direction, RH_BIKE_PX_PER_FRAME);
+#else
     PlayerSetAnimId(GetSlideMovementAction(direction), 2);
+#endif
+}
+
+void PlayerWalkAtPx(u8 direction, u8 pxPerFrame)
+{
+    PlayerSetAnimId(GetMovementActionForPx(direction, pxPerFrame), 2);
 }
 
 void PlayerRun(u8 direction)
@@ -1322,7 +1354,9 @@ void InitPlayerAvatar(s16 x, s16 y, u8 direction, u8 gender)
     gPlayerAvatar.spriteId = objectEvent->spriteId;
     gPlayerAvatar.gender = gender;
     SetPlayerAvatarStateMask(PLAYER_AVATAR_FLAG_CONTROLLABLE | PLAYER_AVATAR_FLAG_ON_FOOT);
+#if OW_FOLLOWERS_ENABLED
     UpdatePokemonFollower();
+#endif
 }
 
 void SetPlayerInvisibility(bool8 invisible)

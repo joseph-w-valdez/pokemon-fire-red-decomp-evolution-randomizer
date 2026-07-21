@@ -6,6 +6,10 @@ For versioned release notes, see [CHANGELOG.md](CHANGELOG.md).
 **Build:** `make` → `pokemon-random-evolution-v{version}.gba`  
 **Version:** set `HACK_VERSION` in [`config.mk`](config.mk).
 
+**Feature toggles & tunables:** [`include/config.h`](include/config.h)  
+- `RH_*` / `OW_FOLLOWERS_ENABLED` — on/off gates  
+- `RH_WALK_PX_PER_FRAME`, `RH_BIKE_PX_PER_FRAME`, text delays, battle speed multipliers, etc. — tweak values in one place  
+
 ## Implemented
 
 ### Battles & Pokémon

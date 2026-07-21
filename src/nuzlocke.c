@@ -18,7 +18,11 @@ EWRAM_DATA static bool8 sNuzlockeCatchAllowedThisBattle = FALSE;
 
 bool8 IsNuzlockeActive(void)
 {
+#if RH_NUZLOCKE
     return FlagGet(FLAG_SYS_NUZLOCKE);
+#else
+    return FALSE;
+#endif
 }
 
 // Once-per-area catches only apply after parcel delivery (when balls are given).

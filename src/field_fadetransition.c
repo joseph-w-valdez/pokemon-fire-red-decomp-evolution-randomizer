@@ -294,7 +294,9 @@ void FieldCB_DefaultWarpExit(void)
     Overworld_PlaySpecialMapMusic();
     QuestLog_DrawPreviouslyOnQuestHeaderIfInPlaybackMode();
     SetUpWarpExitTask(FALSE);
+#if OW_FOLLOWERS_ENABLED
     FollowMe_WarpSetEnd();
+#endif
     LockPlayerFieldControls();
 }
 
@@ -398,8 +400,10 @@ static void Task_ExitDoor(u8 taskId)
             task->data[0] = 4;
         break;
     case 4:
+#if OW_FOLLOWERS_ENABLED
         FollowMe_SetIndicatorToComeOutDoor();
         FollowMe_WarpSetEnd();
+#endif
         UnfreezeObjectEvents();
         UnlockPlayerFieldControls();
         DestroyTask(taskId);

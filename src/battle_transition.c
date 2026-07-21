@@ -21,7 +21,11 @@
 #define PALTAG_UNUSED_MUGSHOT 0x100A
 
 // Run transition child tasks this many times per frame (~3x faster field transitions).
-#define BATTLE_TRANSITION_SPEED 3
+#if RH_FAST_BATTLES
+#define BATTLE_TRANSITION_SPEED RH_BATTLE_TRANSITION_SPEED
+#else
+#define BATTLE_TRANSITION_SPEED 1
+#endif
 
 #define B_TRANS_DMA_FLAGS (1 | ((DMA_SRC_INC | DMA_DEST_FIXED | DMA_REPEAT | DMA_16BIT | DMA_START_HBLANK | DMA_ENABLE) << 16))
 

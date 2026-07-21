@@ -126,9 +126,11 @@ void NewGameInitData(void)
     PlayTimeCounter_Reset();
     ClearPokedexFlags();
     InitEventData();
+#if RH_NUZLOCKE
     // Must run after InitEventData (which clears all flags). Choice is stored in
     // SaveBlock2 filler_90 so it survives the unkFlag2 wipe above.
     Nuzlocke_ApplyIntroChoice();
+#endif
     ResetFameChecker();
     SetMoney(&gSaveBlock1Ptr->money, 3000);
     ResetGameStats();
@@ -142,7 +144,7 @@ void NewGameInitData(void)
     ClearRoamerData();
     gSaveBlock1Ptr->registeredItem = 0;
     ClearBag();
-	AddBagItem(ITEM_TEACHY_TV, 1);
+    AddBagItem(ITEM_TEACHY_TV, 1);
     NewGameInitPCItems();
     ClearEnigmaBerries();
     InitEasyChatPhrases();
@@ -155,8 +157,10 @@ void NewGameInitData(void)
     RunScriptImmediately(EventScript_ResetAllMapFlags);
     StringCopy(gSaveBlock1Ptr->rivalName, rivalName);
     ResetTrainerTowerResults();
+#if OW_FOLLOWERS_ENABLED
     gSaveBlock1Ptr->follower.inProgress = FALSE;
     gSaveBlock1Ptr->follower.objId = OBJECT_EVENTS_COUNT;
+#endif
 }
 
 static void ResetMiniGamesResults(void)

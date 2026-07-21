@@ -26,8 +26,14 @@ const u16 gStandardMenuPalette[] = INCBIN_U16("graphics/interface/std_menu.gbapa
 
 static const u8 sTextSpeedFrameDelays[] =
 {
-    [OPTIONS_TEXT_SPEED_SLOW] = 8, // Fast
-    [OPTIONS_TEXT_SPEED_MID]  = 2, // Faster
+#if RH_FAST_TEXT_ONLY
+    [OPTIONS_TEXT_SPEED_SLOW] = RH_TEXT_DELAY_FAST,
+    [OPTIONS_TEXT_SPEED_MID]  = RH_TEXT_DELAY_FASTER,
+#else
+    [OPTIONS_TEXT_SPEED_SLOW] = 8,
+    [OPTIONS_TEXT_SPEED_MID]  = 4,
+    [OPTIONS_TEXT_SPEED_FAST] = 1
+#endif
 };
 
 static const struct WindowTemplate sStandardTextBox_WindowTemplates[] = 
@@ -656,8 +662,13 @@ void DisplayYesNoMenuDefaultNo(void)
 
 u8 GetTextSpeedSetting(void)
 {
+#if RH_FAST_TEXT_ONLY
     if (gSaveBlock2Ptr->optionsTextSpeed > OPTIONS_TEXT_SPEED_MID)
         gSaveBlock2Ptr->optionsTextSpeed = OPTIONS_TEXT_SPEED_MID;
+#else
+    if (gSaveBlock2Ptr->optionsTextSpeed > OPTIONS_TEXT_SPEED_FAST)
+        gSaveBlock2Ptr->optionsTextSpeed = OPTIONS_TEXT_SPEED_MID;
+#endif
     return sTextSpeedFrameDelays[gSaveBlock2Ptr->optionsTextSpeed];
 }
 

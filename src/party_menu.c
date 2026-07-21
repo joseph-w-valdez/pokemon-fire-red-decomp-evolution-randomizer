@@ -4285,6 +4285,10 @@ static void CB2_UseItem(void)
     {
         GiveMoveToMon(&gPlayerParty[gPartyMenu.slotId], ItemIdToBattleMoveId(gSpecialVar_ItemId));
         AdjustFriendship(&gPlayerParty[gPartyMenu.slotId], FRIENDSHIP_EVENT_LEARN_TMHM);
+#if !RH_REUSABLE_TMS
+        if (gSpecialVar_ItemId < ITEM_HM01)
+            RemoveBagItem(gSpecialVar_ItemId, 1);
+#endif
         SetMainCallback2(gPartyMenu.exitCallback);
     }
     else
@@ -4303,6 +4307,10 @@ static void CB2_UseTMHMAfterForgettingMove(void)
         SetMonMoveSlot(mon, ItemIdToBattleMoveId(gSpecialVar_ItemId), moveIdx);
         AdjustFriendship(mon, FRIENDSHIP_EVENT_LEARN_TMHM);
         ItemUse_SetQuestLogEvent(QL_EVENT_USED_ITEM, mon, gSpecialVar_ItemId, move);
+#if !RH_REUSABLE_TMS
+        if (gSpecialVar_ItemId < ITEM_HM01)
+            RemoveBagItem(gSpecialVar_ItemId, 1);
+#endif
         SetMainCallback2(gPartyMenu.exitCallback);
     }
     else
@@ -4719,9 +4727,19 @@ u16 ItemIdToBattleMoveId(u16 item)
 
 bool8 IsMoveHm(u16 move)
 {
-    // Allow HM moves to be forgotten / overwritten like any other move.
+#if RH_FORGETTABLE_HMS
     (void)move;
     return FALSE;
+#else
+    {
+        u8 i;
+
+        for (i = 0; i < NUM_HIDDEN_MACHINES - 1; ++i) // no dive
+            if (sTMHMMoves[i + NUM_TECHNICAL_MACHINES] == move)
+                return TRUE;
+        return FALSE;
+    }
+#endif
 }
 
 bool8 MonKnowsMove(struct Pokemon *mon, u16 move)
@@ -4799,7 +4817,13 @@ static void Task_LearnedMove(u8 taskId)
     s16 *data = gPartyMenu.data;
 
     if (learnMoveMethod == LEARN_VIA_TMHM)
+    {
         AdjustFriendship(mon, FRIENDSHIP_EVENT_LEARN_TMHM);
+#if !RH_REUSABLE_TMS
+        if (gSpecialVar_ItemId < ITEM_HM01)
+            RemoveBagItem(gSpecialVar_ItemId, 1);
+#endif
+    }
     GetMonNickname(mon, gStringVar1);
     StringCopy(gStringVar2, gMoveNames[learnMoveId]);
     StringExpandPlaceholders(gStringVar4, gText_PkmnLearnedMove3);
@@ -5137,10 +5161,17 @@ static void Task_TryLearningNextMove(u8 taskId)
 static void PartyMenuTryEvolution(u8 taskId)
 {
     struct Pokemon *mon = &gPlayerParty[gPartyMenu.slotId];
+    u16 targetSpecies;
 
     FreePartyPointers();
     gCB2_AfterEvolution = gPartyMenu.exitCallback;
+#if RH_RANDOM_EVOLUTION
     BeginRandomLevelEvolutionScene(mon, FALSE, gPartyMenu.slotId);
+#else
+    targetSpecies = GetEvolutionTargetSpecies(mon, EVO_MODE_NORMAL, ITEM_NONE);
+    if (targetSpecies != SPECIES_NONE)
+        BeginEvolutionScene(mon, targetSpecies, TRUE, gPartyMenu.slotId);
+#endif
     DestroyTask(taskId);
 }
 

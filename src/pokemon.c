@@ -4416,7 +4416,11 @@ bool8 PokemonUseItemEffects(struct Pokemon *mon, u16 item, u8 partyIndex, u8 mov
 
                             if (targetSpecies != SPECIES_NONE)
                             {
+#if RH_RANDOM_EVOLUTION
                                 BeginRandomLevelEvolutionScene(mon, FALSE, partyIndex);
+#else
+                                BeginEvolutionScene(mon, targetSpecies, FALSE, partyIndex);
+#endif
                                 return FALSE;
                             }
                         }
@@ -5705,7 +5709,7 @@ void InfectFirstPartyMonWithPokerus(void)
         return;
 
     // Strain 0xF, 4 days remaining (active). Decay is stubbed in FRLG, so it stays.
-    pokerus = 0xF4;
+    pokerus = RH_POKERUS_INFECT_VALUE;
     SetMonData(&gPlayerParty[0], MON_DATA_POKERUS, &pokerus);
 }
 
@@ -6187,9 +6191,20 @@ const struct CompressedSpritePalette *GetMonSpritePalStructFromOtIdPersonality(u
 
 bool32 IsHMMove2(u16 move)
 {
-    // Allow HM moves to be forgotten / overwritten like any other move.
+#if RH_FORGETTABLE_HMS
     (void)move;
     return FALSE;
+#else
+    {
+        int i = 0;
+        while (sHMMoves[i] != HM_MOVES_END)
+        {
+            if (sHMMoves[i++] == move)
+                return TRUE;
+        }
+        return FALSE;
+    }
+#endif
 }
 
 bool8 IsMonSpriteNotFlipped(u16 species)

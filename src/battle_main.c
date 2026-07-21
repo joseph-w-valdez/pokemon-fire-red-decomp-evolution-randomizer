@@ -1494,12 +1494,13 @@ void BattleMainCB2(void)
 {
     AnimateSprites();
     RunTasks();
-    // ~2x battle move/status anims: advance sprites & anim tasks twice per frame
+#if RH_FAST_BATTLES && RH_BATTLE_DOUBLE_TICK_ANIMS
     if (gAnimScriptActive)
     {
         AnimateSprites();
         RunTasks();
     }
+#endif
     BuildOamBuffer();
     RunTextPrinters();
     UpdatePaletteFade();
@@ -3923,6 +3924,7 @@ static void FreeResetData_ReturnToOvOrDoEvolutions(void)
     if (!gPaletteFade.active)
     {
         ResetSpriteData();
+#if RH_RANDOM_EVOLUTION
         if (!HasQueuedRandomLevelEvolutions() || gBattleOutcome != B_OUTCOME_WON)
         {
             ClearRandomLevelEvolutionQueue();
@@ -3930,6 +3932,12 @@ static void FreeResetData_ReturnToOvOrDoEvolutions(void)
         }
         else
             gBattleMainFunc = TryEvolvePokemon;
+#else
+        if (gLeveledUpInBattle == 0 || gBattleOutcome != B_OUTCOME_WON)
+            gBattleMainFunc = ReturnFromBattleToOverworld;
+        else
+            gBattleMainFunc = TryEvolvePokemon;
+#endif
         FreeAllWindowBuffers();
         if (!(gBattleTypeFlags & BATTLE_TYPE_LINK))
         {
@@ -3942,6 +3950,7 @@ static void FreeResetData_ReturnToOvOrDoEvolutions(void)
 
 static void TryEvolvePokemon(void)
 {
+#if RH_RANDOM_EVOLUTION
     while (HasQueuedRandomLevelEvolutions())
     {
         u8 partyId = DequeueRandomLevelEvolution();
@@ -3956,6 +3965,35 @@ static void TryEvolvePokemon(void)
         return;
     }
     gBattleMainFunc = ReturnFromBattleToOverworld;
+#else
+    {
+        s32 i;
+
+        while (gLeveledUpInBattle != 0)
+        {
+            for (i = 0; i < PARTY_SIZE; i++)
+            {
+                if (gLeveledUpInBattle & gBitTable[i])
+                {
+                    u16 species;
+                    u8 levelUpBits = gLeveledUpInBattle;
+
+                    levelUpBits &= ~(gBitTable[i]);
+                    gLeveledUpInBattle = levelUpBits;
+
+                    species = GetEvolutionTargetSpecies(&gPlayerParty[i], EVO_MODE_NORMAL, levelUpBits);
+                    if (species != SPECIES_NONE)
+                    {
+                        gBattleMainFunc = WaitForEvoSceneToFinish;
+                        EvolutionScene(&gPlayerParty[i], species, 0x81, i);
+                        return;
+                    }
+                }
+            }
+        }
+        gBattleMainFunc = ReturnFromBattleToOverworld;
+    }
+#endif
 }
 
 static void WaitForEvoSceneToFinish(void)

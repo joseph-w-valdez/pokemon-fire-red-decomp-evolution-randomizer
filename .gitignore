@@ -14,6 +14,10 @@
 *.sgm
 *.sa1
 *.sg1
+*.ss1
+*.ss0
+pokefirered-*.png
+pokeleafgreen-*.png
 *.gbapal
 *.hwjpnfont
 *.i
