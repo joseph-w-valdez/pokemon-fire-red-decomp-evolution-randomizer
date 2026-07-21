@@ -702,7 +702,11 @@ static void Task_PlayCryWhenReleasedFromBall(u8 taskId)
         break;
     case 2:
         StopCryAndClearCrySongs();
-        gTasks[taskId].tCryTaskFrames = 1; // was 3
+#if RH_FAST_BATTLES
+        gTasks[taskId].tCryTaskFrames = RH_POKEBALL_CRY_FRAMES_A;
+#else
+        gTasks[taskId].tCryTaskFrames = 3;
+#endif
         gTasks[taskId].tCryTaskState = 20;
         break;
     case 20:
@@ -722,7 +726,11 @@ static void Task_PlayCryWhenReleasedFromBall(u8 taskId)
         }
         break;
     case 3:
-        gTasks[taskId].tCryTaskFrames = 2; // was 6
+#if RH_FAST_BATTLES
+        gTasks[taskId].tCryTaskFrames = RH_POKEBALL_CRY_FRAMES_B;
+#else
+        gTasks[taskId].tCryTaskFrames = 6;
+#endif
         gTasks[taskId].tCryTaskState = 30;
         break;
     case 30:
@@ -737,7 +745,11 @@ static void Task_PlayCryWhenReleasedFromBall(u8 taskId)
         if (!IsCryPlayingOrClearCrySongs())
         {
             StopCryAndClearCrySongs();
-            gTasks[taskId].tCryTaskFrames = 1; // was 3
+#if RH_FAST_BATTLES
+            gTasks[taskId].tCryTaskFrames = RH_POKEBALL_CRY_FRAMES_A;
+#else
+            gTasks[taskId].tCryTaskFrames = 3;
+#endif
             gTasks[taskId].tCryTaskState++;
         }
         break;
@@ -856,7 +868,11 @@ static void HandleBallAnimEnd(struct Sprite *sprite)
     }
     else
     {
-        gSprites[gBattlerSpriteIds[battlerId]].data[1] -= 864; // was 288; ~3x faster emerge bounce
+#if RH_FAST_BATTLES
+        gSprites[gBattlerSpriteIds[battlerId]].data[1] -= RH_POKEBALL_BOUNCE_DELTA;
+#else
+        gSprites[gBattlerSpriteIds[battlerId]].data[1] -= 288;
+#endif
         gSprites[gBattlerSpriteIds[battlerId]].y2 = gSprites[gBattlerSpriteIds[battlerId]].data[1] >> 8;
     }
     if (sprite->animEnded && affineAnimEnded)
@@ -909,7 +925,11 @@ static void SpriteCB_BallThrow_CaptureMon(struct Sprite *sprite)
 
 static void SpriteCB_PlayerMonSendOut_1(struct Sprite *sprite)
 {
-    sprite->data[0] = 8; // was 25; ~3x faster ball arc
+#if RH_FAST_BATTLES
+    sprite->data[0] = RH_POKEBALL_ARC_FRAMES;
+#else
+    sprite->data[0] = 25;
+#endif
     sprite->data[2] = GetBattlerSpriteCoord(sprite->sBattler, BATTLER_COORD_X_2);
     sprite->data[4] = GetBattlerSpriteCoord(sprite->sBattler, BATTLER_COORD_Y_PIC_OFFSET) + 24;
     sprite->data[5] = -30;
@@ -978,7 +998,11 @@ static void SpriteCB_PlayerMonSendOut_2(struct Sprite *sprite)
 
 static void SpriteCB_ReleaseMon2FromBall(struct Sprite *sprite)
 {
-    if (sprite->data[0]++ > 8) // was 24; ~3x faster double send-out stagger
+#if RH_FAST_BATTLES
+    if (sprite->data[0]++ > RH_POKEBALL_STAGGER_FRAMES)
+#else
+    if (sprite->data[0]++ > 24)
+#endif
     {
         sprite->data[0] = 0;
         sprite->callback = SpriteCB_ReleaseMonFromBall;
@@ -988,7 +1012,11 @@ static void SpriteCB_ReleaseMon2FromBall(struct Sprite *sprite)
 static void SpriteCB_OpponentMonSendOut(struct Sprite *sprite)
 {
     sprite->data[0]++;
-    if (sprite->data[0] > 5) // was 15; ~3x faster opponent release
+#if RH_FAST_BATTLES
+    if (sprite->data[0] > RH_POKEBALL_RELEASE_FRAMES)
+#else
+    if (sprite->data[0] > 15)
+#endif
     {
         sprite->data[0] = 0;
         if (IsDoubleBattle() && gBattleSpritesDataPtr->animationData->introAnimActive
@@ -1249,7 +1277,11 @@ void StartHealthboxSlideIn(u8 battlerId)
 static void SpriteCB_HealthboxSlideInDelayed(struct Sprite *sprite)
 {
     sprite->sDelayTimer++;
-    if (sprite->sDelayTimer >= 7) // was 20; ~3x faster
+#if RH_FAST_BATTLES
+    if (sprite->sDelayTimer >= RH_POKEBALL_DELAY_FRAMES)
+#else
+    if (sprite->sDelayTimer == 20)
+#endif
     {
         sprite->sDelayTimer = 0;
         sprite->callback = SpriteCB_HealthboxSlideIn;
@@ -1259,9 +1291,13 @@ static void SpriteCB_HealthboxSlideInDelayed(struct Sprite *sprite)
 static void SpriteCB_HealthboxSlideIn(struct Sprite *sprite)
 {
     u8 i;
+#if RH_FAST_BATTLES
+    u8 ticks = RH_POKEBALL_HEALTHBOX_TICKS;
+#else
+    u8 ticks = 1;
+#endif
 
-    // 3x faster healthbox slide-in
-    for (i = 0; i < 3; i++)
+    for (i = 0; i < ticks; i++)
     {
         sprite->x2 -= sprite->sSpeedX;
         sprite->y2 -= sprite->sSpeedY;

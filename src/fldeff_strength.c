@@ -33,8 +33,15 @@ static void FieldCB_UseStrength(void)
 
 bool8 FldEff_UseStrength(void)
 {
+#if RH_HM_KEY_ITEMS
     u8 taskId = CreateFieldEffectNoShowMon();
+#else
+    u8 taskId = CreateFieldEffectShowMon();
+#endif
     FLDEFF_SET_FUNC_TO_DATA(ShowMonCB_UseStrength);
+#if !RH_HM_KEY_ITEMS
+    GetMonNickname(&gPlayerParty[gFieldEffectArguments[0]], gStringVar1);
+#endif
     return FALSE;
 }
 

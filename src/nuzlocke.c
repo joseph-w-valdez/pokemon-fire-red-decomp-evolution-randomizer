@@ -7,9 +7,9 @@
 #include "constants/region_map_sections.h"
 #include "constants/vars.h"
 
-// Intro choice lives in SaveBlock2 filler so NewGameInitData does not wipe it
+// Intro choice lives in SaveBlock2 so NewGameInitData does not wipe it
 // the way it does unkFlag2.
-#define sNuzlockeIntroChoice (gSaveBlock2Ptr->filler_90[0])
+#define sNuzlockeIntroChoice (gSaveBlock2Ptr->nuzlockeIntroChoice)
 
 // Set to 2 when Oak's Parcel is delivered and Poké Balls are received.
 #define NUZLOCKE_ENCOUNTERS_START_VAR_VALUE 2

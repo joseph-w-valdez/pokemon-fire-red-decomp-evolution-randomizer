@@ -1,7 +1,14 @@
 #ifndef GUARD_CONFIG_H
 #define GUARD_CONFIG_H
 
-#include "global.h"
+// global.h includes config.h; do not include global.h here so map scripts can
+// #include "config.h" without pulling C headers into the assembler pipeline.
+#ifndef TRUE
+#define TRUE 1
+#endif
+#ifndef FALSE
+#define FALSE 0
+#endif
 
 // In the Generation 3 games, Asserts were used in various debug builds.
 // Ruby/Sapphire and Emerald do not have these asserts while Fire Red
@@ -96,6 +103,10 @@
 #define RH_SKIP_QUEST_LOG_INTRO    TRUE
 #define RH_FAST_BATTLES            TRUE
 #define RH_SKIP_CONTROLS_GUIDE     TRUE
+// When TRUE, skip Viridian catch tutorial (remove old man after Oak's Parcel)
+// AND grant Teachy TV at new game. When FALSE, restore vanilla tutorial flow
+// and do not auto-grant Teachy TV.
+#define RH_SKIP_CATCH_TUTORIAL     TRUE
 
 // ---- Tunable values (used when the matching RH_* toggle is TRUE) ----
 // Tweak these instead of hunting magic numbers through src/.
@@ -122,6 +133,16 @@
 #define RH_BATTLE_TRANSITION_SPEED     3  // field transition ticks/frame
 #define RH_BATTLE_DOUBLE_TICK_ANIMS    TRUE // BattleMainCB2 double-runs anim tasks
 #define RH_CRY_TEMPO_MULT              3  // battle cry tempo = 256 * this
+
+// Pokéball / send-out timing (used when RH_FAST_BATTLES)
+#define RH_POKEBALL_BOUNCE_DELTA   864   // vanilla 288
+#define RH_POKEBALL_ARC_FRAMES     8     // vanilla 25
+#define RH_POKEBALL_STAGGER_FRAMES 8     // vanilla 24 (data[0]++ > N)
+#define RH_POKEBALL_RELEASE_FRAMES 5     // vanilla 15
+#define RH_POKEBALL_DELAY_FRAMES   7     // vanilla 20
+#define RH_POKEBALL_HEALTHBOX_TICKS 3
+#define RH_POKEBALL_CRY_FRAMES_A   1     // was 3
+#define RH_POKEBALL_CRY_FRAMES_B   2     // was 6
 
 // Pokérus strain byte applied by the Cerulean Gentleman (high nibble=strain, low=days)
 #define RH_POKERUS_INFECT_VALUE    0xF4
