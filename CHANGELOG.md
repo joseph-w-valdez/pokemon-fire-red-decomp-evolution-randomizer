@@ -5,6 +5,17 @@ Feature details and planned work live in [CHANGES.md](CHANGES.md).
 
 Version string comes from `HACK_VERSION` in [`config.mk`](config.mk). Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.3.1] — 2026-07-21
+
+### Added
+- Shared framed panel helpers (`src/framed_panel.c`): `FramedPanel_Reset` / `Flush` / `ShowEmpty` / `ShowText` — same caller-owns-window split as the scrollbar
+
+### Changed
+- Debug menu list and footer chrome draw through `framed_panel` instead of duplicated fill/frame/map/copy
+
+### Docs
+- [CHANGES.md](CHANGES.md) Planned reusable-UI list marks panel/footer done; [docs/debug_menu.md](docs/debug_menu.md) notes the module
+
 ## [0.3.0] — 2026-07-20
 
 ### Added
