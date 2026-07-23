@@ -3,10 +3,10 @@
 
 #include "global.h"
 
-// Stock type badges from graphics/interface/menu_info.4bpp + pokemon_types.pal.
-// Blank procedural pills: TypeIcon_DrawBlank* / BlitBlank* (fill + gTypeNames;
-// white-ink leftover-pad center — see TypeIcon_GetLabelOrigin). Preview:
-//   python tools/preview_type_pills.py
+// Type-pill preset on UiChip (include/ui_chip.h): silhouette / label / surround /
+// Commit are generic; this module owns type fills, stock bake, HP helpers.
+// Blank procedural pills: TypeIcon_DrawBlank* / BlitBlank* (fill + gTypeNames).
+// Preview: python tools/preview_type_pills.py
 //
 // Prefer same-pal window when possible (Moves / Skills detail HP):
 //   window paletteNum = type bank; FillWindowPixelBuffer(0);

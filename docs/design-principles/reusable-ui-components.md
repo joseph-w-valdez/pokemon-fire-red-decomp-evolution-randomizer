@@ -44,8 +44,8 @@ Design for the **primary host** first; don’t make every caller pay for the har
 
 | Pattern | Example |
 |---------|---------|
-| Prefer when possible | **Same-pal type window** — `TypeIcon_Draw` / `DrawBlank` / `BlitMenuInfoIcon`, idx 0 punches through (Moves, Skills detail HP) |
-| Happy path (shared themed window) | `TypeIcon_Blit` / `BlitBlank` / `DrawHiddenPower*Block` → UiTheme fill as surround (MAKEOVER) |
+| Prefer when possible | **Same-pal type window** — `TypeIcon_Draw` / `DrawBlank` / `BlitMenuInfoIcon`, idx 0 punches through (Moves, Skills detail HP, MAKEOVER `WIN_HP_PILL`) |
+| Legacy (shared themed window) | `TypeIcon_Blit` / `BlitBlank` / `DrawHiddenPower*Block` → UiTheme fill as surround |
 | Escape hatch | `*WithSurround(…, rgb15)` for foreign shared canvases |
 | Defaults + presets | `StatRadar_SetDefaults` + `ApplySizePreset` (+ optional `labelRadius`) |
 | Explicit inject | `LoadBgPalSlots` when the host bank isn’t a theme |
@@ -59,11 +59,12 @@ Design for the **primary host** first; don’t make every caller pay for the har
 Do not hide these behind “it just works” — encode them in names, aligns, and comments:
 
 1. **8×8 tile grid** — palette override and many blits are tile-scoped; expose `AlignX` / align Y or require tile-aligned args (TypeIcon snaps Y down silently — callers should pass tile-aligned coords).
-2. **BG palette index 0 is transparent** — never “clear to 0 + patch color 0” for a visible pad on mixed-palette BGs; on a **same-pal type window**, idx 0 punch-through is the intended stripe look.
+2. **BG palette index 0 is transparent** — never “clear to 0 + patch color 0” for a visible pad on mixed-palette BGs; on a **same-pal type window**, idx 0 punch-through is the intended stripe look. Std **frame** corners are transparent too — an opaque matte under dialogs will chop behind UI past the visible bezel ([ui-common-problems.md](../ui-common-problems.md) § BG layers).
 3. **Chroma keys** — many assets use `RGB_MAGENTA` at pal idx 0. Sampling `[BG_PLTT_ID(n)]` alone is unsafe; prefer skip-0 pickers (`SurroundFromBgPal`) and sanitize inside blit.
 4. **Per-tile palette override** — leftover pixels in an override rect remapped through the foreign bank → fringe / wrong text colors. Fill the whole rect before color-key blit. Override height ≥ `ceil(artH/8)` tiles (12px badge → 16px pad).
 5. **4bpp nibble packing** — multi-color plotters pass **raw** indices 0–15, not `PIXEL_FILL(n)` (see StatRadar / ui-components gotchas).
 6. **`StatRadar` `labelRadius`** — `scalePercent` shrinks drawn cage only; set `labelRadius` to keep tip labels on a larger ring (Skills detail).
+7. **Four BGs only (BG0–BG3)** — hardware. Overlapping framed windows need separate BGs or a gap; past four layers use OBJ or multiplex. MAKEOVER uses all four (editor / pill / YesNo / MSG).
 
 ---
 
@@ -71,7 +72,7 @@ Do not hide these behind “it just works” — encode them in names, aligns, a
 
 Three valid shapes:
 
-**Same-pal type window** — Moves / Skills detail HP:
+**Same-pal type window** — Moves / Skills detail HP / MAKEOVER footer pill:
 
 ```text
 Load type pal (once if needed)
@@ -98,7 +99,7 @@ Document this order in the **header**. Wrong order = theme colors on the badge o
 
 **One-shot (component owns chrome)** — FramedPanel `ShowEmpty` / `ShowText`: reset + optional text + flush. Fine when the window’s only job is that panel.
 
-Prefer **same-pal** for badges on striped/foreign chrome when a small window is affordable; prefer split when the badge must share a themed canvas; prefer one-shot when the component **is** the window’s chrome.
+Prefer **same-pal** for new chips whenever a small type window is affordable (MAKEOVER + Skills are same-pal-only); use split (mixed-pal pad) only as a legacy escape hatch on shared canvases; prefer one-shot when the component **is** the window’s chrome.
 
 ---
 
@@ -137,8 +138,8 @@ Pure data helpers (`TypeIcon_CalcHiddenPowerType`, etc.) may live next to painte
 
 | Role | Example | Rule |
 |------|---------|------|
-| Canonical (mixed-palette) | MAKEOVER footer TypeIcon | Keep working; docs recipes point here for surround/`Commit` |
-| Canonical (same-pal) | Moves type column; Skills detail HP pill | Prefer this pattern for new summary hosts |
+| Canonical (same-pal) | Moves type column; Skills detail HP; MAKEOVER `WIN_HP_PILL` | Default for new chip hosts |
+| Legacy (mixed-palette) | Shared foreign canvas + surround/`Commit` | Keep APIs; do not add new product hosts here |
 | Future proof | Debug component gallery | Presets + both TypeIcon paths side by side |
 
 Don’t treat disposable proof layout as product UX.
@@ -176,22 +177,22 @@ Before calling a module “reusable”:
 - Themed happy path vs `*WithSurround`.
 - `SurroundFromBgPal` + sanitize against `RGB_MAGENTA`.
 - Hidden Power IV helpers kept as data beside paint.
-- **Same-pal window path** for Skills detail (and Moves): avoids opaque pad fighting striped chrome.
-- MAKEOVER footer uses **blank** mixed-palette (live HP type); Skills can keep stock bake where pixel-identical vanilla matters.
+- **Same-pal window path** for Skills detail, Moves, and MAKEOVER footer (`WIN_HP_PILL`): pill asset = silhouette + label only; no surround pad.
+- MAKEOVER uses **blank** same-pal (live HP type); Skills can keep stock bake where pixel-identical vanilla matters.
 
 **What still hurts**
 
-- Shared canvases still need `PutWindowTilemap` before `Commit` (Commit does not map the whole window); remount wipes override.
-- Opaque surround cannot match stripes — must use same-pal + idx 0 or accept a solid pad.
+- Shared canvases still need `PutWindowTilemap` before `Commit` (Commit does not map the whole window); remount wipes override — prefer same-pal to avoid this.
+- Opaque surround cannot match stripes — must use same-pal + idx 0 or accept a solid pad (legacy only).
 - Silent Y tile-snap makes 1px nudges jump by up to 7px — document / expose align helpers to callers.
 - Foreign hosts need an explicit surround; easy to sample chrome idx 0 without `SurroundFromBgPal`.
 - Preview vs ROM can diverge if origin math isn’t written agbcc-safe (signed `/` toward zero) — keep leftover-pad form + regenerate PNGs after C changes.
 
 **API status**
 
-1. Keep `TypeIcon_Blit` / `DrawHiddenPowerBlock` as themed mixed-palette happy path (stock bake) — done.
-2. `BlitBlank*` / `DrawHiddenPowerBlankBlock*` for procedural pills — **done** (MAKEOVER footer).
-3. Prefer `TypeIcon_Draw` / dedicated type window when the host is striped or foreign — **Skills detail done**; Moves was already this pattern.
+1. Keep `TypeIcon_Blit` / `DrawHiddenPowerBlock` as themed mixed-palette escape hatch (stock bake) — done; not for new MAKEOVER/Skills hosts.
+2. `BlitBlank*` / `DrawHiddenPowerBlankBlock*` for procedural pills on shared canvases — done (legacy).
+3. Prefer `TypeIcon_Draw` / dedicated type window — **Skills, Moves, MAKEOVER footer done**.
 4. Prefer `SurroundFromBgPal` / explicit RGB for foreign shared canvases; sanitize inside blit — done.
 5. `TypeIcon_Commit` / `CommitSized` = override + optional VRAM copy — **done**. Still no `Show*` that also `PutWindowTilemap` (shared canvases own that).
 6. `LoadPalette` once at init; blit only patches surround idx 10 — **done**.
@@ -229,22 +230,14 @@ Vanilla FireRed ships a lot of **lettered / finished** UI sheets (`menu_info` ty
 
 TypeIcon blank pills are the template: stock path stays for Moves/Skills bake; blank path is the customizable component. When you eye the next sheet (`TYPE` / `POWER` bars, etc.), ask whether a painter + preview beats another frozen PNG.
 
-### Planned: generic chip core + presets
+### Done: generic chip core + TypeIcon preset
 
-Today TypeIcon owns both **GBA chip mechanics** (silhouette, surround, label center, Commit) and **type-pill policy** (32×12, 1px corners, type fill tables, `gTypeNames`). That works, but the next badge will copy-paste the hard parts.
+TypeIcon used to own both **GBA chip mechanics** and **type-pill policy**. Split:
 
-**Target split**
+| Layer | Owns | Lives in |
+|-------|------|----------|
+| Chip / shape core | W×H rect, 1px corners, solid/split fill, label + white-ink leftover-pad origin, same-pal vs mixed surround/`Commit` | [`ui_chip.c`](../../src/ui_chip.c) / [`ui_chip.h`](../../include/ui_chip.h) |
+| TypeIcon preset | Type fills, `gTypeNames` / HP prefix, stock bake, HP calc; blank APIs wrap UiChip | [`type_icon.c`](../../src/type_icon.c) |
+| Preview tools (next) | Any chip config → PNG; type sheet compare as one recipe | generalize `preview_type_pills.py` → `preview_ui_chip.py` |
 
-| Layer | Owns | Lives roughly in |
-|-------|------|------------------|
-| Chip / shape core | W×H rect, corner mask/policy, solid or split fill, optional string + white-ink leftover-pad origin, same-pal vs mixed surround/`Commit` | e.g. `ui_chip.c` / `include/ui_chip.h` |
-| Presets | Type pill (and later move-info bars, etc.): size, fills, name source | e.g. `type_icon.c` or `type_pill_preset.c` calling the core |
-| Preview tools | Render any chip config to PNG; optional stock-sheet compare recipes | generalize `tools/preview_type_pills.py` → `preview_ui_chip.py` (+ thin type recipe) |
-
-**Why this is reasonable**
-
-- Custom type pills become “a preset,” not a second one-off painter.
-- Preview stays ahead of the emulator for *any* shape, not only `menu_info` types.
-- Bake blits (`TypeIcon_Draw`) can remain for vanilla-identical call sites.
-
-Track also under [CHANGES.md](../../CHANGES.md) Likely next. Don’t block shipping more TypeIcon call sites on this refactor — extract when a second chip shape appears or the file gets painful.
+Existing `TypeIcon_*` call sites unchanged (thin wrappers). New badges should call `UiChip_*` directly.

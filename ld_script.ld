@@ -175,6 +175,8 @@ SECTIONS {
         src/bg_pal_slots.o(.text);
         src/footer_strip.o(.text);
         src/ui_theme.o(.text);
+        src/ui_chip.o(.text);
+        src/type_icon.o(.text);
         src/rh_stat_editor.o(.text);
         src/battle_anim_effects_1.o(.text);
         src/battle_anim_effects_2.o(.text);
@@ -498,6 +500,8 @@ SECTIONS {
         src/bg_pal_slots.o(.rodata);
         src/footer_strip.o(.rodata);
         src/ui_theme.o(.rodata);
+        src/ui_chip.o(.rodata);
+        src/type_icon.o(.rodata);
         src/rh_stat_editor.o(.rodata);
         src/battle_anim_effects_1.o(.rodata);
         src/battle_anim_effects_2.o(.rodata);
