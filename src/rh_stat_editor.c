@@ -36,7 +36,8 @@ enum
     WIN_LIST,
     WIN_SCROLL,
     WIN_FOOTER,
-    WIN_MATTE, // BG1 opaque plate under dialog (hides BG0 through frame holes)
+    WIN_HP_PILL, // BG1 same-pal type host (idx 0 punches through to BG0 cream)
+    WIN_MATTE, // reserved VRAM; confirm dialogs no longer map a cream plate
     WIN_MSG,
 };
 
@@ -100,20 +101,30 @@ enum
 #define STAT_EDITOR_FOOTER_RIGHT_W    40
 #define STAT_EDITOR_FOOTER_TEXT_X     4
 #define STAT_EDITOR_HP_TYPE_PAL       13
+#define STAT_EDITOR_FOOTER_TILE_LEFT  1
+#define STAT_EDITOR_FOOTER_TILE_TOP   15
+// Same-pal HP pill canvas (Skills detail pattern). Room for longest "HP "+type FIT.
+#define STAT_EDITOR_HP_PILL_TILE_W    7
+#define STAT_EDITOR_HP_PILL_TILE_H    2
+#define STAT_EDITOR_HP_PILL_BASE      387 // after footer tiles 309–386; before std frame 0x1C0
 // Radar place rect nudge — keep in sync with StatEditor_PlaceEvRadar.
 #define STAT_EDITOR_RADAR_RECT_NUDGE_X 10
 // Match FramedPanel / LoadStdWindowGfx in StatEditor_InitGfx (not stock 0x214).
 #define STAT_EDITOR_FRAME_TILE  0x1C0
 #define STAT_EDITOR_FRAME_PAL   14
 // Std frame gfx is 9 tiles at 0x1C0 (448–456). Dialog windows start after that.
-// Layer stack: BG0 editor (pri 2) → BG1 opaque matte (pri 1) → BG2 dialogs (pri 0).
-// Std frame tiles have transparent texels; without the matte, BG0 chrome leaks through.
+// Layer stack (GBA has BG0–BG3 only):
+//   BG0 pri2 editor | BG1 pri1 HP pill | BG3 pri0 MSG | BG2 pri0 YesNo (on top)
+// Equal pri0: lower BG# wins, so YesNo(BG2) stacks over MSG(BG3).
+// Confirm never touches BG1 — pill stays mapped. No cream matte.
+// WIN_MATTE kept in the window table (VRAM reserved) but is not mapped.
 #define STAT_EDITOR_MATTE_BASE  457
-#define STAT_EDITOR_MATTE_W     27
+// Reserved plate size (unused at runtime); keeps MSG/YesNo baseBlocks stable.
+#define STAT_EDITOR_MATTE_W     28
 #define STAT_EDITOR_MATTE_H     7
-#define STAT_EDITOR_MSG_BASE    (STAT_EDITOR_MATTE_BASE + STAT_EDITOR_MATTE_W * STAT_EDITOR_MATTE_H) // 646
-#define STAT_EDITOR_YESNO_BASE  (STAT_EDITOR_MSG_BASE + 18 * 5) // 736
-// Pixel nudge for dialog duo (BG1 matte + BG2 windows) via HOFS/VOFS.
+#define STAT_EDITOR_MSG_BASE    (STAT_EDITOR_MATTE_BASE + STAT_EDITOR_MATTE_W * STAT_EDITOR_MATTE_H) // 653
+#define STAT_EDITOR_YESNO_BASE  (STAT_EDITOR_MSG_BASE + 18 * 5) // 743
+// Pixel nudge for dialog duo (BG2 YesNo + BG3 MSG) via HOFS/VOFS.
 #define STAT_EDITOR_DIALOG_NUDGE_X  4
 #define STAT_EDITOR_DIALOG_NUDGE_Y  5
 
@@ -245,7 +256,7 @@ static const struct BgTemplate sBgTemplates[] =
         .mapBaseIndex = 30,
         .screenSize = 0,
         .paletteMode = 0,
-        .priority = 1, // opaque matte under dialog frames
+        .priority = 1, // HP pill (stays up during confirm)
         .baseTile = 0
     },
     {
@@ -254,7 +265,16 @@ static const struct BgTemplate sBgTemplates[] =
         .mapBaseIndex = 29,
         .screenSize = 0,
         .paletteMode = 0,
-        .priority = 0, // modal dialogs on top
+        .priority = 0, // confirm YesNo (on top of MSG)
+        .baseTile = 0
+    },
+    {
+        .bg = 3,
+        .charBaseIndex = 0,
+        .mapBaseIndex = 28,
+        .screenSize = 0,
+        .paletteMode = 0,
+        .priority = 0, // confirm MSG (under YesNo; over pill)
         .baseTile = 0
     }
 };
@@ -284,14 +304,25 @@ static const struct WindowTemplate sWinTemplates[] =
     [WIN_FOOTER] =
     {
         .bg = 0,
-        .tilemapLeft = 1,
-        .tilemapTop = 15,
+        .tilemapLeft = STAT_EDITOR_FOOTER_TILE_LEFT,
+        .tilemapTop = STAT_EDITOR_FOOTER_TILE_TOP,
         .width = 26,
         .height = 3,
         .paletteNum = 15,
         .baseBlock = 309
     },
-    // Opaque cream plate (no frame). Covers MSG+YesNo including 1-tile frame margins.
+    // Same-pal type window over footer gap; tilemapLeft updated at draw time.
+    [WIN_HP_PILL] =
+    {
+        .bg = 1,
+        .tilemapLeft = 10,
+        .tilemapTop = STAT_EDITOR_FOOTER_TILE_TOP,
+        .width = STAT_EDITOR_HP_PILL_TILE_W,
+        .height = STAT_EDITOR_HP_PILL_TILE_H,
+        .paletteNum = STAT_EDITOR_HP_TYPE_PAL,
+        .baseBlock = STAT_EDITOR_HP_PILL_BASE
+    },
+    // Reserved opaque plate (not mapped). VRAM still reserved so MSG/YesNo bases stay put.
     [WIN_MATTE] =
     {
         .bg = 1,
@@ -304,7 +335,7 @@ static const struct WindowTemplate sWinTemplates[] =
     },
     [WIN_MSG] =
     {
-        .bg = 2,
+        .bg = 3, // under YesNo (BG2); leaves BG1 free for HP pill
         .tilemapLeft = 2,
         .tilemapTop = 8,
         .width = 18,
@@ -315,7 +346,8 @@ static const struct WindowTemplate sWinTemplates[] =
     DUMMY_WIN_TEMPLATE
 };
 
-// CreateYesNoMenu AddWindow — BG2 beside WIN_MSG; matte on BG1 blocks BG0 leaks.
+// CreateYesNoMenu — BG2 on top of WIN_MSG (BG3); left=21 overlaps MSG's right
+// frame without deleting MSG tiles (different BG tilemaps).
 static const struct WindowTemplate sYesNoWindowTemplate =
 {
     .bg = 2,
@@ -353,7 +385,9 @@ static void StatEditor_ShowSaveConfirm(u8 taskId);
 static void StatEditor_DismissConfirm(u8 taskId);
 static void StatEditor_HandleCancelConfirm(u8 taskId);
 static void StatEditor_HandleSaveConfirm(u8 taskId);
-static void StatEditor_HideDialogBg(void);
+static void StatEditor_HideDialogBg(u8 taskId);
+static void StatEditor_HideHpTypeIcon(void);
+static void StatEditor_DrawFooterHpTypeIcon(u16 leftEdge);
 static void StatEditor_DestroyScrollbar(void);
 static void StatEditor_HideScrollStrip(void);
 static void StatEditor_DestroyList(u8 taskId);
@@ -568,10 +602,19 @@ static void StatEditor_DrawEvRadar(void)
     StatRadar_Draw(&config);
 }
 
-static EWRAM_DATA u16 sFooterHpIconX = 0;
-static EWRAM_DATA u16 sFooterHpIconW = 0;
+static EWRAM_DATA bool8 sHpPillMapped = FALSE;
 
-// Center the HP pill in the open span between EV text (leftEdge) and the radar cage.
+static void StatEditor_HideHpTypeIcon(void)
+{
+    if (!sHpPillMapped)
+        return;
+    ClearWindowTilemap(WIN_HP_PILL);
+    CopyWindowToVram(WIN_HP_PILL, COPYWIN_MAP);
+    sHpPillMapped = FALSE;
+}
+
+// Same-pal type window on BG1: pill pixels only; idx 0 punches through to BG0 cream.
+// No surround fill / Commit (avoids tile-pad stomping EV text + radar).
 static void StatEditor_DrawFooterHpTypeIcon(u16 leftEdge)
 {
     u8 type = TypeIcon_CalcHiddenPowerType(sDraft.iv);
@@ -579,28 +622,48 @@ static void StatEditor_DrawFooterHpTypeIcon(u16 leftEdge)
     struct StatRadarConfig radar;
     struct FooterStripLayout strip;
     u8 label[TYPE_ICON_LABEL_BUF_SIZE];
-    u8 winPal;
     u16 width;
     u16 rightEdge;
-    u16 x;
-    u16 surround;
+    u16 pillX;
+    u16 screenX;
+    u16 tileLeft;
+    u16 drawX;
+    u16 canvasW = STAT_EDITOR_HP_PILL_TILE_W * 8;
 
     StatEditor_PlaceEvRadar(&radar, &strip);
-    // Visual left of the PREVIEW cage (draw uses cx + nudgeX).
     rightEdge = (u16)(radar.cx + radar.nudgeX - (s16)radar.radius);
 
-    // FIT = labelW + 1px each side (reads better than flush fit-content).
     TypeIcon_WidthSetFit(&widthCfg, 1, 0, 0, FALSE);
     TypeIcon_FormatTypeLabel(label, type, gText_TypeIconHpPrefix);
     width = TypeIcon_ResolveWidth(&widthCfg, label);
-    // Nearest tile so mixed-pal AlignPos/Commit stay on the centered slot.
-    x = TypeIcon_AlignXNearest(TypeIcon_CenterXInSpan(leftEdge, rightEdge, width));
+    if (width > canvasW)
+        width = canvasW;
 
-    winPal = GetWindowAttribute(WIN_FOOTER, WINDOW_PALETTE_NUM);
-    surround = gPlttBufferUnfaded[BG_PLTT_ID(winPal) + UI_THEME_IDX_FILL];
-    sFooterHpIconW = TypeIcon_BlitBlankEx(WIN_FOOTER, STAT_EDITOR_HP_TYPE_PAL, type,
-                                          x, 0, &widthCfg, gText_TypeIconHpPrefix, surround);
-    sFooterHpIconX = x;
+    pillX = TypeIcon_CenterXInSpan(leftEdge, rightEdge, width);
+    screenX = STAT_EDITOR_FOOTER_TILE_LEFT * 8 + pillX;
+    tileLeft = screenX / 8;
+    drawX = screenX - tileLeft * 8;
+    if (drawX + width > canvasW)
+    {
+        // Keep the pill inside the 7-tile canvas.
+        u16 overflow = (drawX + width) - canvasW;
+        if (tileLeft >= (overflow + 7) / 8)
+            tileLeft -= (overflow + 7) / 8;
+        else
+            tileLeft = 0;
+        screenX = STAT_EDITOR_FOOTER_TILE_LEFT * 8 + pillX;
+        drawX = screenX - tileLeft * 8;
+        if (drawX + width > canvasW)
+            drawX = canvasW - width;
+    }
+
+    SetWindowAttribute(WIN_HP_PILL, WINDOW_TILEMAP_LEFT, tileLeft);
+    SetWindowAttribute(WIN_HP_PILL, WINDOW_TILEMAP_TOP, STAT_EDITOR_FOOTER_TILE_TOP);
+    FillWindowPixelBuffer(WIN_HP_PILL, PIXEL_FILL(0));
+    TypeIcon_DrawBlankEx(WIN_HP_PILL, type, drawX, 0, &widthCfg, gText_TypeIconHpPrefix);
+    PutWindowTilemap(WIN_HP_PILL);
+    CopyWindowToVram(WIN_HP_PILL, COPYWIN_FULL);
+    sHpPillMapped = TRUE;
 }
 
 static void StatEditor_PrintFooter(u8 taskId)
@@ -610,6 +673,7 @@ static void StatEditor_PrintFooter(u8 taskId)
 
     if (gTasks[taskId].tPage == PAGE_NATURE_PICKER)
     {
+        StatEditor_HideHpTypeIcon();
         FramedPanel_ShowText(WIN_FOOTER, sText_FooterNaturePicker, sTextColors, NULL);
         return;
     }
@@ -634,11 +698,10 @@ static void StatEditor_PrintFooter(u8 taskId)
     AddTextPrinterParameterized3(WIN_FOOTER, FONT_SMALL, STAT_EDITOR_FOOTER_TEXT_X, 11,
                                  sTextColors, TEXT_SKIP_DRAW, hint);
     StatEditor_DrawEvRadar();
+    PutWindowTilemap(WIN_FOOTER);
+    CopyWindowToVram(WIN_FOOTER, COPYWIN_FULL);
     StatEditor_DrawFooterHpTypeIcon(
         STAT_EDITOR_FOOTER_TEXT_X + GetStringWidth(FONT_SMALL, gStringVar3, 0));
-    PutWindowTilemap(WIN_FOOTER);
-    TypeIcon_CommitSized(WIN_FOOTER, STAT_EDITOR_HP_TYPE_PAL, sFooterHpIconX, 0,
-                         sFooterHpIconW, COPYWIN_FULL);
 }
 
 static void StatEditor_InitFooter(u8 taskId)
@@ -869,6 +932,7 @@ static void StatEditor_ShowNaturePicker(u8 taskId)
     StatEditor_NaturePickerScrollToCursor(taskId);
     StatEditor_DrawNaturePicker(taskId);
     StatEditor_CreateNatureScrollbar(taskId);
+    StatEditor_HideHpTypeIcon();
     FramedPanel_ShowText(WIN_FOOTER, sText_FooterNaturePicker, sTextColors, NULL);
 }
 
@@ -1060,20 +1124,18 @@ static void StatEditor_ShowConfirmDialog(u8 taskId, const u8 *str, u8 nextState)
     struct FramedPanelConfig msgCfg;
 
     PlaySE(SE_SELECT);
-    // BG1 matte (opaque) under BG2 dialogs so std-frame transparent texels
-    // show cream instead of BG0 list/scrollbar chrome.
-    FillBgTilemapBufferRect_Palette0(1, 0, 0, 0, 32, 32);
+    // MSG on BG3, YesNo on BG2 (on top). BG1 HP pill stays put. Overlap is OK —
+    // separate tilemaps, so frames do not delete each other. No cream matte;
+    // transparent frame corners punch to MSG fill / pill / BG0 underneath.
     FillBgTilemapBufferRect_Palette0(2, 0, 0, 0, 32, 32);
+    FillBgTilemapBufferRect_Palette0(3, 0, 0, 0, 32, 32);
     // HOFS/VOFS: +x moves content left, +y moves content up (sub-tile nudge).
-    ChangeBgX(1, STAT_EDITOR_DIALOG_NUDGE_X << 8, BG_COORD_SET);
-    ChangeBgY(1, STAT_EDITOR_DIALOG_NUDGE_Y << 8, BG_COORD_SET);
     ChangeBgX(2, STAT_EDITOR_DIALOG_NUDGE_X << 8, BG_COORD_SET);
     ChangeBgY(2, STAT_EDITOR_DIALOG_NUDGE_Y << 8, BG_COORD_SET);
-    FillWindowPixelBuffer(WIN_MATTE, PIXEL_FILL(1));
-    PutWindowTilemap(WIN_MATTE);
-    CopyWindowToVram(WIN_MATTE, COPYWIN_FULL);
-    ShowBg(1);
+    ChangeBgX(3, STAT_EDITOR_DIALOG_NUDGE_X << 8, BG_COORD_SET);
+    ChangeBgY(3, STAT_EDITOR_DIALOG_NUDGE_Y << 8, BG_COORD_SET);
     ShowBg(2);
+    ShowBg(3);
 
     msgCfg.fillColor = FRAMED_PANEL_DEFAULT_FILL;
     msgCfg.frameTile = STAT_EDITOR_FRAME_TILE;
@@ -1097,27 +1159,26 @@ static void StatEditor_ShowSaveConfirm(u8 taskId)
     StatEditor_ShowConfirmDialog(taskId, sText_SaveChanges, STATE_CONFIRM_SAVE);
 }
 
-static void StatEditor_HideDialogBg(void)
+static void StatEditor_HideDialogBg(u8 taskId)
 {
     ClearStdWindowAndFrameToTransparent(WIN_MSG, FALSE);
     ClearWindowTilemap(WIN_MSG);
-    ClearWindowTilemap(WIN_MATTE);
-    FillBgTilemapBufferRect_Palette0(1, 0, 0, 0, 32, 32);
     FillBgTilemapBufferRect_Palette0(2, 0, 0, 0, 32, 32);
-    CopyBgTilemapBufferToVram(1);
+    FillBgTilemapBufferRect_Palette0(3, 0, 0, 0, 32, 32);
     CopyBgTilemapBufferToVram(2);
-    ChangeBgX(1, 0, BG_COORD_SET);
-    ChangeBgY(1, 0, BG_COORD_SET);
+    CopyBgTilemapBufferToVram(3);
     ChangeBgX(2, 0, BG_COORD_SET);
     ChangeBgY(2, 0, BG_COORD_SET);
-    HideBg(1);
+    ChangeBgX(3, 0, BG_COORD_SET);
+    ChangeBgY(3, 0, BG_COORD_SET);
     HideBg(2);
+    HideBg(3);
 }
 
 static void StatEditor_DismissConfirm(u8 taskId)
 {
     // YesNo already destroyed by Menu_ProcessInputNoWrapClearOnChoose.
-    StatEditor_HideDialogBg();
+    StatEditor_HideDialogBg(taskId);
     gTasks[taskId].tState = STATE_HANDLE_INPUT;
 }
 
@@ -1129,7 +1190,7 @@ static void StatEditor_HandleCancelConfirm(u8 taskId)
     {
     case 0: // YES — exit without saving (no ApplyDraft / no item consume)
         PlaySE(SE_SELECT);
-        StatEditor_HideDialogBg();
+        StatEditor_HideDialogBg(taskId);
         StatEditor_BeginClose(taskId);
         break;
     case 1: // NO
@@ -1148,7 +1209,7 @@ static void StatEditor_HandleSaveConfirm(u8 taskId)
     {
     case 0: // YES — apply draft, consume item, exit
         PlaySE(SE_USE_ITEM);
-        StatEditor_HideDialogBg();
+        StatEditor_HideDialogBg(taskId);
         StatEditor_ApplyDraft();
         StatEditor_BeginClose(taskId);
         break;
@@ -1216,6 +1277,8 @@ static void StatEditor_InitGfx(void)
     ChangeBgY(1, 0, BG_COORD_SET);
     ChangeBgX(2, 0, BG_COORD_SET);
     ChangeBgY(2, 0, BG_COORD_SET);
+    ChangeBgX(3, 0, BG_COORD_SET);
+    ChangeBgY(3, 0, BG_COORD_SET);
     InitWindows(sWinTemplates);
     DeactivateAllTextPrinters();
 
@@ -1231,15 +1294,18 @@ static void StatEditor_InitGfx(void)
     FillBgTilemapBufferRect_Palette0(0, 0, 0, 0, 32, 32);
     FillBgTilemapBufferRect_Palette0(1, 0, 0, 0, 32, 32);
     FillBgTilemapBufferRect_Palette0(2, 0, 0, 0, 32, 32);
+    FillBgTilemapBufferRect_Palette0(3, 0, 0, 0, 32, 32);
     CopyBgTilemapBufferToVram(0);
     CopyBgTilemapBufferToVram(1);
     CopyBgTilemapBufferToVram(2);
+    CopyBgTilemapBufferToVram(3);
 
     ShowBg(0);
-    HideBg(1);
+    ShowBg(1); // HP pill punches through to BG0
     HideBg(2);
+    HideBg(3);
     SetGpuReg(REG_OFFSET_DISPCNT, DISPCNT_MODE_0 | DISPCNT_OBJ_1D_MAP | DISPCNT_OBJ_ON
-             | DISPCNT_BG0_ON | DISPCNT_BG1_ON | DISPCNT_BG2_ON);
+             | DISPCNT_BG0_ON | DISPCNT_BG1_ON | DISPCNT_BG2_ON | DISPCNT_BG3_ON);
     SetVBlankCallback(VBlankCB_StatEditor);
 
     StatEditor_LoadDraftFromMon();

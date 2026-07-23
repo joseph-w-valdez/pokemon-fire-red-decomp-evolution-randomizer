@@ -5,6 +5,7 @@ Central pitfalls for romhack UI: **shared window painters** (MAKEOVER, debug men
 | Section | When to read |
 |---------|----------------|
 | [Window painters / TypeIcon](#window-painters--typeicon) | Fringe, wrong colors, gray/magenta pads, stripes vs solid surround, stretch, label centering, draw order |
+| [BG layers / overlapping frames](#bg-layers--overlapping-frames) | Hardware BG0–BG3 limit, same-BG frame stomping, confirm-modal stacking, opaque matte vs punch-through |
 | [Mid-battle overlays](#mid-battle-overlays) | Dex / nickname mid-fight, reshow, sprites, OT give |
 
 ---
@@ -22,12 +23,17 @@ Lessons from shared window painters. When a new painter looks “almost right,�
 | Tilemap palette override | Per **8×8 tile**, can point a rect at another BG bank | Cannot override half a tile; leftover pixels in the rect use the override bank |
 | BG palette index **0** | Hardware **transparent** on BG layers | Shows whatever is behind the BG — not “color 0 of this pal” |
 
-Summary-screen type pills dodge mixed-palette pain when the **whole window** already uses `pokemon_types` (`paletteNum` 6) — Moves type column and Skills detail HP pill. MAKEOVER footer does **not** (shared themed window → mixed-palette path).
+Summary-screen type pills dodge mixed-palette pain when the **whole window** already uses `pokemon_types` — Moves type column, Skills detail HP pill, and MAKEOVER `WIN_HP_PILL` (BG1, pal 13). **Default for new chips:** dedicated same-pal type window. Mixed-palette surround pad is **legacy** only for rare shared canvases.
 
-## Checklist (mixed-palette gfx)
+## Checklist (new type chips)
+
+1. **Prefer a dedicated same-pal type window** (clear to 0, `Draw`/`DrawBlank`, map/copy — no surround, no `Commit`). Place it on a BG that punches through to the correct underlayer (MAKEOVER: BG1 over BG0 cream).
+2. Only if a shared foreign canvas is unavoidable: follow the mixed-palette checklist below (legacy pad path).
+
+## Checklist (mixed-palette gfx — legacy)
 
 1. Tile-align X/Y to 8px before any `PutWindowRectTilemapOverridePalette` (blit also snaps Y down silently).
-2. Fill the **full** override rect (W×H in tile multiples) with a **non-zero** index you control — **or** prefer a same-pal type window so idx 0 can punch through to stripes.
+2. Fill the **full** override rect (W×H in tile multiples) with a **non-zero** index you control — never rely on idx 0 as “match fill.”
 3. Color-key blit stock art (skip 0) so rounded corners keep that surround index (opaque path).
 4. `PutWindowTilemap` for the window **before** palette override (override last).
 5. `CopyWindowToVram(…, COPYWIN_FULL)` when both gfx and map changed.
@@ -51,7 +57,7 @@ Fill / blit badge pixels
 → CopyWindowToVram(COPYWIN_FULL)
 ```
 
-Reference: `TypeIcon_Blit` then caller `TypeIcon_ApplyPaletteOverride` after tilemap (`src/type_icon.c`, MAKEOVER footer).
+Reference: `TypeIcon_Blit` then caller `TypeIcon_ApplyPaletteOverride` after tilemap (`src/type_icon.c`). Prefer a same-pal window so this order never arises (MAKEOVER footer uses `WIN_HP_PILL`).
 
 ### 2. Gray / orange fringe at rounded corners
 
@@ -63,24 +69,27 @@ Reference: `TypeIcon_Blit` then caller `TypeIcon_ApplyPaletteOverride` after til
 
 ### 3. Gray strip (or “ears”) under a correct pink pill
 
-**Symptom:** After corner fixes, a gray bar the width of the pill sits under it (extra height). Earlier: same area was solid pink.
+**Symptom:** After corner fixes, a gray bar the width of the pill sits under it (extra height). Earlier: same area was solid pink. Theme cycle can also reveal a cream/gray slab stomping neighboring text/radar.
 
 **Why (two layers):**
 
 1. Badge art is **12px** tall; override must cover **16px** (2 tile rows). The bottom 4px must be *some* index under the type bank.
 2. Filling that pad with **index 0** (or leaving color-key holes as 0) does **not** show a patched `type-pal[0]`. On GBA BGs, **index 0 is transparent** → you see chrome behind the window (gray). Filling with the **body pink** instead makes a tall pink rectangle.
+3. On a shared theme window, the surround pad is **not** the pill asset — leftover tile pixels remapped through `pokemon_types` force a fake opaque “match cream” (idx 10). That pad stomps text/radar when drawn after them.
 
-**Fix:** Use an index **unused by badge art** (type badges never use **10**). Patch `type-pal[10]` to the host window **fill** color (`UI_THEME_IDX_FILL` on UiTheme windows, or an explicit surround RGB via `*WithSurround`). Fill the override rect with `10`, then color-key blit the stock badge **or** paint blank-pill corners with surround idx 10.
+**Fix (default for new chips):** Don’t put the badge on the shared canvas. Use a **dedicated same-pal type window** (`FillWindowPixelBuffer(0)`, `DrawBlank*`, no surround/`Commit`). Empty pixels punch through to the correct underlayer (MAKEOVER: `WIN_HP_PILL` on BG1 over BG0 footer cream). The painted asset stays fill + corners + label only.
+
+**Legacy fix (shared canvas only):** Use an index **unused by badge art** (type badges never use **10**). Patch `type-pal[10]` to the host window **fill** color (`UI_THEME_IDX_FILL` on UiTheme windows, or an explicit surround RGB via `*WithSurround`). Fill the override rect with `10`, then color-key blit the stock badge **or** paint blank-pill corners with surround idx 10. Do **not** invest in smarter fill-sampling — that polishes the hack; prefer a dedicated window instead.
 
 Do **not** “fix” this by painting body color into the pad — that brings back the rectangle.
 
 ### 3b. Magenta / hot-pink pad on a non-theme window (same geometry as #3)
 
-**Symptom:** MAKEOVER footer looks fine, but another screen (e.g. summary Moves proof) shows a **solid magenta / darker-pink** rectangle under the badge — thin vertical edges + a thick bottom bar. No scanlines in the pad (opaque, not “see-through”).
+**Symptom:** A shared-canvas mixed-palette host shows a **solid magenta / darker-pink** rectangle under the badge — thin vertical edges + a thick bottom bar. No scanlines in the pad (opaque, not “see-through”).
 
 **Why:** Surround RGB was sampled from **BG pal index 0**. On summary chrome (`bg.gbapal`) and many tilesets, idx 0 is `RGB_MAGENTA` (chroma key / transparent intent), not the visible panel lavender. Patching type-pal[10] with that key paints an opaque magenta pad. Host pal index 1 is also unsafe to assume (summary memo pal 5 uses it for radar blue).
 
-**Fix:**
+**Fix:** Prefer a same-pal type window (§3). If stuck on mixed-palette:
 
 - Prefer `TypeIcon_SurroundFromBgPal(bgPal)` (skips idx 0, prefers panel slots like idx 3).
 - Or pass a known panel RGB15; never `gPlttBufferUnfaded[BG_PLTT_ID(n)]` alone.
@@ -94,11 +103,11 @@ Do **not** “fix” this by painting body color into the pad — that brings ba
 
 **Why:** Opaque surround is **one RGB**. Striped page chrome is **multiple colors**. A solid pad can never match both. Leaving pad as idx 0 on a **mixed-palette override** still remaps through the type bank / transparency rules and often shows the wrong layer (classic gray bar, §3).
 
-**Fix (preferred):** Don’t put the badge on the foreign canvas. Give it a **dedicated type-palette window** (Moves pattern): `paletteNum` = type bank, `FillWindowPixelBuffer(0)`, `TypeIcon_Draw` / `BlitMenuInfoIcon`, no surround/`Commit`. Empty pixels punch through to the real stripes.
+**Fix (preferred — default for new chips):** Don’t put the badge on the foreign canvas. Give it a **dedicated type-palette window** (Moves / Skills / MAKEOVER pattern): `paletteNum` = type bank, `FillWindowPixelBuffer(0)`, `TypeIcon_Draw` / `DrawBlank` / `BlitMenuInfoIcon`, no surround/`Commit`. Empty pixels punch through to the real underlayer.
 
-**When mixed-palette is unavoidable** (MAKEOVER flat footer): keep opaque UiTheme fill surround — flat hosts don’t need stripe punch-through.
+**When mixed-palette is unavoidable** (legacy shared themed canvas with flat fill): keep opaque UiTheme fill surround — flat hosts don’t need stripe punch-through. Do not polish fill-sampling; plan a dedicated window next.
 
-Reference: Skills detail `PokeSum_DrawSkillsDetailHpTypeIcon`; Moves `PokeSum_DrawMoveTypeIcons`.
+Reference: Skills detail `PokeSum_DrawSkillsDetailHpTypeIcon`; Moves `PokeSum_DrawMoveTypeIcons`; MAKEOVER `StatEditor_DrawFooterHpTypeIcon` (`WIN_HP_PILL`).
 
 ### 4. Stretching / ad-hoc rebuilding the pill (ghost text, wrong fonts)
 
@@ -130,11 +139,11 @@ Reference: Skills detail `PokeSum_DrawSkillsDetailHpTypeIcon`; Moves `PokeSum_Dr
 **Fix for checkpoint:** Show the type pill alone (right-aligned in the left strip). Custom “HP {type}” belongs in a future TypeIcon config, not a one-off footer printer.
 ### 6. Radar overwrites the badge
 
-**Symptom:** Pill clipped or missing after EV adjust.
+**Symptom:** Pill clipped or missing after EV adjust (same-window hosts).
 
 **Why:** Same window; draw order. Radar after badge stomps pixels (and can leave theme indices in override tiles).
 
-**Fix:** Draw badge **after** radar (MAKEOVER), or give the badge an exclusive rect the radar never touches.
+**Fix:** Give the badge its own window (MAKEOVER `WIN_HP_PILL`), or draw badge **after** radar on a shared canvas.
 
 ### 7. Live refresh flashes the std frame
 
@@ -151,6 +160,79 @@ Reference: Skills detail `PokeSum_DrawSkillsDetailHpTypeIcon`; Moves `PokeSum_Dr
 **Why:** `FillBitmapRect4Bit` ORs a full `PIXEL_FILL` byte into one nibble; mixed neighbors become wrong indices.
 
 **Fix:** Pass **raw** indices 0–15 into multi-color painters. See gotcha #1 in [ui-components.md](ui-components.md).
+
+---
+
+# BG layers / overlapping frames
+
+Hardware and window-stacking lessons from MAKEOVER confirm dialogs + the HP pill. Pair with [custom-screen.md](custom-screen.md) (bootstrap) and the TypeIcon host rules above.
+
+## Mental model (BG layers)
+
+| Fact | Implication |
+|------|-------------|
+| GBA Mode 0 has **exactly four** BG layers: **BG0–BG3** | **Hardware limit** — source cannot add BG4. Need more? Multiplex a layer, use **OBJ** sprites, or drop something. |
+| Each BG has its **own tilemap** | Two windows on **different** BGs can cover the same screen tiles without deleting each other’s map entries. |
+| Two windows on the **same** BG share one tilemap | Last `PutWindowTilemap` / std-frame write **wins** for that tile — earlier frame/border tiles are gone. |
+| Priority: lower number draws **on top** | MAKEOVER: BG2/BG3 at pri 0 over BG1 (pill, pri 1) over BG0 (editor, pri 2). |
+| Equal priority → **lower BG number** wins | YesNo on BG2 + MSG on BG3 (both pri 0) → YesNo stacks on top of MSG. |
+| BG palette index **0** is transparent | Shows the next visible layer under that BG (or backdrop). Std **frame** tiles use transparent corner texels on purpose. |
+
+## MAKEOVER stack (canonical)
+
+Reference: [`src/rh_stat_editor.c`](../src/rh_stat_editor.c).
+
+| BG | Pri | Role |
+|----|-----|------|
+| 0 | 2 | Editor chrome (list, footer text/radar, scrollbar) |
+| 1 | 1 | `WIN_HP_PILL` only (same-pal type; idx 0 → BG0 cream) |
+| 3 | 0 | Confirm `WIN_MSG` |
+| 2 | 0 | Confirm YesNo (overlaps MSG; on top) |
+
+Confirm **must not** reuse BG1 for MSG — that wiped the HP pill. Dialogs live on BG2+BG3; pill stays mapped on BG1.
+
+## Problems we hit (frames / layers)
+
+### A. Same-BG overlapping frames delete borders
+
+**Symptom:** MSG right border / corner missing where YesNo sits; boxes “compete” and erase pixels.
+
+**Why:** Std frames extend **±1 tile** around the content window. MSG content ending at x19 → frame to x20; YesNo at left 21 → frame from x20. Shared column **20** on one BG → YesNo’s left frame stomps MSG’s right frame.
+
+**Fix:** Put overlapping framed windows on **different BGs** (MSG BG3, YesNo BG2). Overlap is fine; tilemaps stay independent. Alternately gap them by ≥1 tile so frame footprints don’t share columns (no overlap look).
+
+### B. Opaque matte chops UI past the visible bezel
+
+**Symptom:** Solid cream rectangle under the duo; list/footer glyphs cut mid-row at the plate edge, outside the rounded brown border. Hiding BG0 “fixes” the chop by removing the behind UI entirely.
+
+**Why:** Std frame art has **transparent** corner texels. An opaque underlay (`WIN_MATTE`) fills a tile-aligned rect larger than the *visible* ink of the bezel, so cream covers BG0 beyond what the eye reads as “the border.”
+
+**Fix (preferred when behind UI should stay):** **No matte.** Let frame transparency punch through to BG0 / lower layers. Keep editor BG0 visible. Accept that rounded corners show whatever is underneath (list, pill, cream fill of the other dialog).
+
+**Avoid:** `HideBg(0)` as the primary fix if the goal is “preserve UI behind.”
+
+### C. Multiplexing a layer steals another host
+
+**Symptom:** Opening confirm makes the HP pill disappear; dismiss remounts it.
+
+**Why:** MSG was hosted on BG1, same layer as `WIN_HP_PILL`. Show path cleared BG1’s tilemap.
+
+**Fix:** Dedicated layers for confirm (BG2/BG3). Never clear BG1 during dialog. Remount-on-dismiss becomes unnecessary for the pill.
+
+### D. Foreign-palette chip on a shared theme window (related)
+
+**Symptom:** Type pill pad stomps EV text/radar (tile override leftovers).
+
+**Why / fix:** Same family as “two hosts fighting,” different mechanism — see §§3–3c above. Prefer same-pal `WIN_HP_PILL` on its own BG; do not paper over with a cream surround pad.
+
+## Checklist (new overlapping UI)
+
+1. Count free BGs (**max 4 total**). Don’t plan a fifth layer.
+2. Same-BG overlap of std-framed windows → expect deleted borders; split BGs or gap ≥1 tile.
+3. Want behind UI visible through frame corners → **no** opaque full-rect matte; rely on idx-0 / frame transparency.
+4. Don’t borrow a layer that already hosts a live chip (pill, overlay) unless you intentionally hide that chip.
+5. Nudge dialog BGs together (HOFS/VOFS) so MSG + YesNo stay aligned; reset on dismiss.
+6. Past four BGs: OBJ for floating chrome, or multiplex (hide A while showing B on one BG).
 
 ## RhLog / `_("…")` in call args
 

@@ -97,9 +97,11 @@ These burned real debug time; treat as checklist when adding a new painter. Deep
 
 5. **Std frame tiles** share the framed-panel palette; don’t stomp indices the frame / text need unless you own that bank entirely.
 
-6. **BG palette index 0 is transparent.** On mixed-palette windows, never rely on “clear to 0 + patch color 0” for invisible surround — use a non-zero free index patched to the host fill (TypeIcon uses index 10).
+6. **BG palette index 0 is transparent.** On a **same-pal type window**, clear to 0 — punch-through is the pure host. On **mixed-palette** (legacy) hosts, never “clear to 0 + patch color 0” for invisible surround — use a non-zero free index patched to the host fill (TypeIcon uses index 10).
 
-7. **Tilemap palette override is per 8×8 tile.** Tile-align the blit, fill the whole override rect, color-key stock art, then override **after** `PutWindowTilemap`.
+7. **Tilemap palette override is per 8×8 tile.** Prefer a dedicated same-pal window so you never override. If stuck on a shared canvas: tile-align the blit, fill the whole override rect, color-key stock art, then override **after** `PutWindowTilemap`.
+
+8. **Only BG0–BG3 exist** (hardware). Overlapping std-framed windows on one BG stomp bezels; split BGs or gap them. Don’t use an opaque matte rect if behind UI should show through frame corners. Full write-up: [ui-common-problems.md](ui-common-problems.md) § BG layers.
 
 ---
 
@@ -248,14 +250,18 @@ Icon mode is 32×32 OBJ; front-pic mode is 64×64. Align helpers place from the 
 
 ## UiChip
 
-Generic small chrome painter ([`include/ui_chip.h`](../include/ui_chip.h)): mid-split fill + 1px corners, optional label (white-ink leftover-pad center), FIXED/FIT width, mixed-palette surround/`Commit`.
+Generic small chrome painter ([`include/ui_chip.h`](../include/ui_chip.h)): mid-split fill + 1px corners, optional label (white-ink leftover-pad center), FIXED/FIT width. **Host purity matters more than silhouette math:** same-pal hosts paint the pill only (`cornerIdx` 0); mixed-palette surround/`Commit` is a legacy escape hatch for rare shared canvases.
 
 Type pills are a **preset**: existing `TypeIcon_*` blank/BlitBlank/Commit APIs wrap UiChip; stock bake and HP helpers stay in TypeIcon. New badges should call `UiChip_*` directly (custom fills/label style/height) instead of copying TypeIcon.
 
 ```c
-UiChip_Draw(win, fillTop, fillBottom, x, y, w, h, cornerIdx); // same-pal: cornerIdx 0
+// Pure host (preferred): dedicated window on the type bank, cleared to 0
+UiChip_Draw(win, fillTop, fillBottom, x, y, w, h, 0);
 UiChip_PrintLabel(win, str, x, y, w, h, &style);
-// mixed-pal:
+PutWindowTilemap(win);
+CopyWindowToVram(win, COPYWIN_FULL);
+
+// Legacy mixed-pal (shared foreign canvas only):
 UiChip_BlitLabeled(win, typePal, fillTop, fillBottom, x, y, w, h, str, &style, surround);
 PutWindowTilemap(win);
 UiChip_Commit(win, typePal, x, y, w, h, COPYWIN_FULL);
@@ -265,68 +271,55 @@ UiChip_Commit(win, typePal, x, y, w, h, COPYWIN_FULL);
 
 ## TypeIcon
 
-Stock `menu_info` type badges **and** procedural blank pills (UiChip silhouette + `gTypeNames` via `FONT_SMALL`). Hidden Power IV helpers live beside the painters. Prefer the **same-pal window** path when you can spare a dedicated window; use mixed-palette only on shared foreign canvases.
+Stock `menu_info` type badges **and** procedural blank pills (UiChip silhouette + `gTypeNames` via `FONT_SMALL`). Hidden Power IV helpers live beside the painters.
+
+**Host rule:** same-pal dedicated window = **pure pill** (asset pixels only; idx 0 punches through). Mixed-palette surround pad = **legacy** — keep the APIs for odd shared canvases; do **not** use for new chips when a small type window fits.
 
 | Painter | Art | When |
 |---------|-----|------|
 | `TypeIcon_Draw` / `BlitMenuInfoIcon` | Baked `menu_info` (letters included) | Same-pal hosts; pixel-identical to vanilla |
 | `TypeIcon_DrawBlank*` / `BlitBlank*` | Procedural fill + label | Custom width, live type, or matching stock look without stretching bake |
-| `DrawHiddenPowerBlock*` / `DrawHiddenPowerBlankBlock*` | Stock or blank + tile align | Footer / shared-canvas helpers |
+| `DrawHiddenPowerBlock*` / `DrawHiddenPowerBlankBlock*` | Stock or blank + tile align | Legacy shared-canvas helpers |
 
 **Procedural label centering:** measure **white** ink only (fg idx 15; SE shadow hangs outside), then center with leftover pads — `pill + (size - ink) / 2 - min`. Do **not** use `(pillCX - inkCX) / 2` on agbcc: negative half-deltas truncate toward zero and sit labels 1px low vs stock. Nudges: `TYPE_ICON_LABEL_NUDGE_X/Y` (default 0). Offline check: [`tools/preview_type_pills.py`](../tools/preview_type_pills.py) → `build/type_pills/` (stock \| procedural + `menu_info` map sheets).
 
-**Width (CSS-like):** `struct TypeIconWidth` + `TypeIcon_ResolveWidth` — `FIXED` (default 32) or `FIT` (`GetStringWidth(label) + 2*padX` at draw time; use `padX=0` for true fit-content), then optional `min` / `max` (`0` = none) / `tileAlign`. Helpers: `WidthSetFixed` / `WidthSetFit`. Placement: `CenterXInSpan(left, right, w)` + `AlignXNearest` before mixed-pal blit. Labels: `FormatTypeLabel` + optional prefix (`HP `). MAKEOVER footer centers the pill between EV text and the radar cage; Skills uses FIT in its type window.
+**Width (CSS-like):** `struct TypeIconWidth` + `TypeIcon_ResolveWidth` — `FIXED` (default 32) or `FIT` (`GetStringWidth(label) + 2*padX` at draw time; use `padX=0` for true fit-content), then optional `min` / `max` (`0` = none) / `tileAlign`. Helpers: `WidthSetFixed` / `WidthSetFit`. Placement: `CenterXInSpan(left, right, w)` (+ `AlignXNearest` only on mixed-pal). Labels: `FormatTypeLabel` + optional prefix (`HP `). MAKEOVER / Skills use FIT on same-pal type windows.
 
-### Same-pal window (Moves / Skills detail)
+### Same-pal window (preferred — Moves / Skills / MAKEOVER)
 
-Whole window `paletteNum` = type bank (summary uses 6). Clear to 0, blit, map — no surround, no `Commit`. Index 0 punches through to page chrome (stripes look correct).
+Whole window `paletteNum` = type bank. Clear to 0, blit, map — no surround, no `Commit`. Index 0 punches through to the BG behind the window (place the pill window on a higher-priority BG than the cream/chrome so punch-through hits the right layer).
 
 ```c
 TypeIcon_LoadPalette(TYPE_PAL); // once if this bank isn’t already loaded for the screen
 FillWindowPixelBuffer(typeWin, 0);
-TypeIcon_Draw(typeWin, type, 0, 0); // stock bake — or TypeIcon_DrawBlank(typeWin, type, 0, 0)
+TypeIcon_Draw(typeWin, type, 0, 0); // stock bake — or TypeIcon_DrawBlank / DrawBlankEx
 PutWindowTilemap(typeWin);
 CopyWindowToVram(typeWin, COPYWIN_FULL);
 ```
 
-**Call sites:** summary Moves type column (`PokeSum_DrawMoveTypeIcons`, stock bake); Skills detail HP pill (`PokeSum_DrawSkillsDetailHpTypeIcon`, blank + `HP ` + FIT); MAKEOVER footer (blank + `HP ` + FIT, mixed-palette).
+**Call sites (same-pal only):** summary Moves type column (`PokeSum_DrawMoveTypeIcons`, stock bake); Skills detail HP pill (`PokeSum_DrawSkillsDetailHpTypeIcon`, blank + `HP ` + FIT); MAKEOVER footer `WIN_HP_PILL` on BG1 (`StatEditor_DrawFooterHpTypeIcon`, blank + `HP ` + FIT; footer theme window owns text/radar only).
 
-### Mixed-palette (MAKEOVER footer)
+### Mixed-palette (legacy — shared foreign canvas)
 
-Shared window on another bank needs tile-align + surround idx 10 + override after tilemap.
+Only when a dedicated type window is impossible. Shared window on another bank needs tile-align + surround idx 10 + override after tilemap. The pad is **not** part of the pill asset — it exists so leftover tile pixels mean something under the type bank.
 
-**Surround color is caller-owned outside UiTheme std-windows.** `TypeIcon_Blit` / `BlitBlank` / `DrawHiddenPower*Block` patch type-pal index 10 from the host window’s `UI_THEME_IDX_FILL` (MAKEOVER). On non-theme hosts, pass explicit RGB15 via `*WithSurround` — prefer `TypeIcon_SurroundFromBgPal(bgPal)` (skips idx 0 / `RGB_MAGENTA`). Blit sanitizes unsafe colors. Call `TypeIcon_LoadPalette` **once** at screen init (blit only patches surround). Blank path paints corners with surround idx (same as stock color-key leaving surround), not transparent 0.
+**Surround color is caller-owned outside UiTheme std-windows.** `TypeIcon_Blit` / `BlitBlank` / `DrawHiddenPower*Block` patch type-pal index 10 from the host window’s `UI_THEME_IDX_FILL`. On non-theme hosts, pass explicit RGB15 via `*WithSurround` — prefer `TypeIcon_SurroundFromBgPal(bgPal)` (skips idx 0 / `RGB_MAGENTA`). Blit sanitizes unsafe colors. Call `TypeIcon_LoadPalette` **once** at screen init (blit only patches surround). Blank path paints corners with surround idx (same as stock color-key leaving surround), not transparent 0.
 
 ```c
 TypeIcon_LoadPalette(TYPE_PAL); // once at screen init; free BG bank
 
-// Themed std-window (MAKEOVER) — FIT pill centered between neighbors:
-struct TypeIconWidth w;
-u16 left = textX + GetStringWidth(FONT_SMALL, evLine, 0);
-u16 right = radarCx - radarRadius; // left edge of cage
-TypeIcon_WidthSetFit(&w, 1, 0, 0, FALSE); // labelW + 1px each side
-TypeIcon_FormatTypeLabel(label, type, _("HP "));
-pillW = TypeIcon_ResolveWidth(&w, label);
-x = TypeIcon_AlignXNearest(TypeIcon_CenterXInSpan(left, right, pillW));
 TypeIcon_BlitBlankEx(windowId, TYPE_PAL, type, x, y, &w, _("HP "), themeFill);
 PutWindowTilemap(windowId);
 TypeIcon_CommitSized(windowId, TYPE_PAL, x, y, pillW, COPYWIN_FULL);
 
-// Stock bake on the same host:
-TypeIcon_Blit(windowId, TYPE_PAL, type, x, y);
-PutWindowTilemap(windowId);
-TypeIcon_Commit(windowId, TYPE_PAL, x, y, COPYWIN_FULL);
-
-// Non-theme shared canvas (explicit surround) — prefer same-pal window instead when possible:
+// Explicit surround on a non-theme shared canvas:
 surround = TypeIcon_SurroundFromBgPal(0);
 x = TypeIcon_DrawHiddenPowerBlockWithSurround(windowId, TYPE_PAL, type, startX, y, surround);
 PutWindowTilemap(windowId);
 TypeIcon_Commit(windowId, TYPE_PAL, x, y, COPYWIN_MAP);
 ```
 
-**Call site (canonical mixed-palette blank):** MAKEOVER footer — [`src/rh_stat_editor.c`](../src/rh_stat_editor.c).
-
-**Note:** Override rect is always ≥ `ceil(art/8)` tiles (32×12 art → 32×16 tiles). Opaque surround cannot match striped chrome; use same-pal + idx 0 or accept a solid pad. Silent Y snap: blit aligns `y` down to a multiple of 8. Default blank width matches stock (`TYPE_ICON_BLANK_WIDTH` 32).
+**Note:** Override rect is always ≥ `ceil(art/8)` tiles (32×12 art → 32×16 tiles). Opaque surround cannot match striped chrome; use same-pal + idx 0 instead. Silent Y snap: blit aligns `y` down to a multiple of 8. Default blank width matches stock (`TYPE_ICON_BLANK_WIDTH` 32).
 
 Pitfalls (fringe, gray pad, magenta pad, stripes vs solid surround, stretch, label centering): [ui-common-problems.md](ui-common-problems.md) §§3–4b.  
 Design rules + “rebuild assets as painters”: [design-principles/reusable-ui-components.md](design-principles/reusable-ui-components.md).

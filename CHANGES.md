@@ -87,20 +87,20 @@ Same “caller owns the window / config paints” split as the shared scrollbar 
 - Shared UI themes — [`include/ui_theme.h`](include/ui_theme.h) (`UiTheme_ApplyStdWindow` / `Cycle`; 8 palettes). MAKEOVER + Debug Menu (**SELECT**); session-sticky index. [docs/ui-themes.md](docs/ui-themes.md).
 - Generic UI chip painter — [`include/ui_chip.h`](include/ui_chip.h) / [`src/ui_chip.c`](src/ui_chip.c) (`UiChip_Draw` / `PrintLabel` / `BlitLabeled` / `Commit`; FIXED/FIT width; surround sanitize). TypeIcon blank path is a **preset** on top (stock bake + HP helpers stay in TypeIcon).
 - Type icon — [`include/type_icon.h`](include/type_icon.h) / [`src/type_icon.c`](src/type_icon.c). Stock `menu_info` bake **and** procedural blank pills (`DrawBlank*` / `BlitBlank*`, white-ink + leftover-pad center). Offline preview: [`tools/preview_type_pills.py`](tools/preview_type_pills.py). Two host patterns:
-  - **Same-pal window** (prefer when possible): window `paletteNum` = type bank → `TypeIcon_Draw` / `DrawBlank` / `BlitMenuInfoIcon`, clear to 0, stripes punch through. Summary Moves type column (stock bake); **Skills detail** Hidden Power pill (`PokeSum_DrawSkillsDetailHpTypeIcon`, blank + `HP ` + FIT, 7-tile window).
-  - **Mixed-palette** (shared foreign window): `Blit` / `BlitBlank*` / `*WithSurround` / `SurroundFromBgPal` / sanitize chroma-key magenta / `Commit`/`CommitSized` after tilemap; `LoadPalette` once per screen. MAKEOVER footer = live HP type via **blank** path (canonical). Pitfalls: [docs/ui-common-problems.md](docs/ui-common-problems.md) §§3–4b. Rebuild-as-painter notes: [docs/design-principles/reusable-ui-components.md](docs/design-principles/reusable-ui-components.md).
+  - **Same-pal window** (prefer when possible): window `paletteNum` = type bank → `TypeIcon_Draw` / `DrawBlank` / `BlitMenuInfoIcon`, clear to 0, punch-through. Summary Moves; Skills detail HP; MAKEOVER `WIN_HP_PILL` on BG1.
+  - **Mixed-palette** (shared foreign window, legacy): `Blit` / `BlitBlank*` / `*WithSurround` / `SurroundFromBgPal` / sanitize chroma-key magenta / `Commit`/`CommitSized` after tilemap; `LoadPalette` once per screen. MAKEOVER footer HP pill is **same-pal** `WIN_HP_PILL` (not mixed). Pitfalls: [docs/ui-common-problems.md](docs/ui-common-problems.md) §§3–4b + BG layers. Rebuild-as-painter notes: [docs/design-principles/reusable-ui-components.md](docs/design-principles/reusable-ui-components.md).
 
 Likely next:
 
 - **Preview tool generalize** — `preview_type_pills.py` → e.g. `preview_ui_chip.py` (any chip config → PNG; type sheet compare = one recipe)
 - **Debug component gallery** — DEBUG MENU page that shows framed panel + slider + radar presets (`PREVIEW` / `MEDIUM` / `LARGE`) + portrait (+ chip presets), ideally with live nudge/scale tweaks to cut rebuild loops
 - **Value / toggle row** — label + `FALSE ▶ TRUE` or cycled enums (cheat-style strips)
-- **Confirm modal** — extract MAKEOVER’s matte + Yes/No pattern (and Debug Reset All) into a shared helper
+- **Confirm modal** — extract MAKEOVER’s BG2 YesNo + BG3 MSG overlap pattern (no matte; pill stays on BG1) into a shared helper; see [docs/ui-common-problems.md](docs/ui-common-problems.md) § BG layers
 - **Scrollable custom list** — cursor/scroll owner + row painter (unify ListMenu pages vs hand-drawn cheat list)
 - **Quantity picker** — wrap 0–99 (or configurable range) like Give qty
 - Later / optional: toast banner, progress bar, tab strip
 
-DevX cookbooks (from MAKEOVER branch friction): [docs/design-principles](docs/design-principles/README.md) (how to shape reusable painters; when to rebuild baked sheets), [docs/ui-components.md](docs/ui-components.md), [docs/ui-themes.md](docs/ui-themes.md), [docs/custom-screen.md](docs/custom-screen.md), [docs/new-item.md](docs/new-item.md), [docs/set_mon_nature.md](docs/set_mon_nature.md).
+DevX cookbooks (from MAKEOVER branch friction): [docs/design-principles](docs/design-principles/README.md) (how to shape reusable painters; when to rebuild baked sheets), [docs/ui-components.md](docs/ui-components.md), [docs/ui-themes.md](docs/ui-themes.md), [docs/custom-screen.md](docs/custom-screen.md), [docs/new-item.md](docs/new-item.md), [docs/set_mon_nature.md](docs/set_mon_nature.md), [docs/ui-common-problems.md](docs/ui-common-problems.md) (TypeIcon pads + BG layer / frame overlap).
 
 ### Pokémon following (HGSS-style)
 - Goal: lead Pokémon walks behind you like Gold/Silver / HeartGold/SoulSilver
@@ -111,7 +111,7 @@ DevX cookbooks (from MAKEOVER branch friction): [docs/design-principles](docs/de
 
 ### FULL MAKEOVER polish (optional)
 - Dedicated clerk NPC (instead of vitamin list entry)
-- Extract MAKEOVER Yes/No confirm stacking (BG matte + dialog) into a reusable confirm-modal helper
+- Extract MAKEOVER Yes/No confirm stacking (BG2/BG3, no matte) into a reusable confirm-modal helper
 - Slider / radar / footer layout tuning; footer hint text that mentions Start if desired
 
 ## Notes
