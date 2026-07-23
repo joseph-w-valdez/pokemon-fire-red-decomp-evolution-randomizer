@@ -35,6 +35,7 @@
 #include "teachy_tv.h"
 #include "tm_case.h"
 #include "rh_debug_menu.h"
+#include "rh_stat_editor.h"
 #include "vs_seeker.h"
 #include "constants/sound.h"
 #include "constants/items.h"
@@ -663,6 +664,16 @@ static void Task_InitRhDebugMenuFromField(u8 taskId)
     }
 }
 #endif
+
+void FieldUseFunc_StatMakeover(u8 taskId)
+{
+#if RH_STAT_MAKEOVER
+    gItemUseCB = ItemUseCB_StatMakeover;
+    DoSetUpItemUseCallback(taskId);
+#else
+    FieldUseFunc_OakStopsYou(taskId);
+#endif
+}
 
 void FieldUseFunc_Repel(u8 taskId)
 {

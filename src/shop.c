@@ -110,6 +110,9 @@ static void PokeMartWriteNameAndIdAt(struct ListMenuItem *list, u16 index, u8 *d
 static void BuyMenuPrintItemDescriptionAndShowItemIcon(s32 item, bool8 onInit, struct ListMenu *list);
 static void BuyMenuPrintPriceInList(u8 windowId, u32 itemId, u8 y);
 static u16 Shop_GetBuyPrice(u16 itemId);
+static u8 Shop_CountDecimalDigits(u32 value);
+static void BuyMenuFormatPriceString(u16 price, u8 *dest);
+static s16 BuyMenuPricePrintX(u8 windowId, const u8 *str);
 static void LoadTmHmNameInMart(s32 item);
 static void BuyMenuPrintCursor(u8 listTaskId, u8 a1);
 static void BuyMenuPrintCursorAtYPosition(u8 y, u8 a1);
@@ -606,20 +609,52 @@ static u16 Shop_GetBuyPrice(u16 itemId)
     return ItemId_GetPrice(itemId);
 }
 
+// Digits needed to print value with no leading zeros (0 → 1 digit).
+static u8 Shop_CountDecimalDigits(u32 value)
+{
+    u8 digits = 1;
+
+    while (value >= 10)
+    {
+        value /= 10;
+        digits++;
+        if (digits >= 10)
+            break;
+    }
+    return digits;
+}
+
+// Builds "¥{price}" in dest. Uses enough digits for `price` (no "?xxx" overflow).
+static void BuyMenuFormatPriceString(u16 price, u8 *dest)
+{
+    u8 digits = Shop_CountDecimalDigits(price);
+
+    // gStringVar1 / ConvertIntToDecimalStringN practical cap; money UI uses ≤6.
+    if (digits > 6)
+        digits = 6;
+    ConvertIntToDecimalStringN(gStringVar1, price, STR_CONV_MODE_LEFT_ALIGN, digits);
+    StringExpandPlaceholders(dest, gText_PokedollarVar1);
+}
+
+// Right-align price text inside the list window (works for any digit width).
+static s16 BuyMenuPricePrintX(u8 windowId, const u8 *str)
+{
+    s16 winW = GetWindowAttribute(windowId, WINDOW_WIDTH) * 8;
+    s16 width = GetStringWidth(FONT_SMALL, str, 0);
+    s16 printX = winW - 4 - width; // 4px inset from window's right edge
+
+    if (printX < 0)
+        printX = 0;
+    return printX;
+}
+
 static void BuyMenuPrintPriceInList(u8 windowId, u32 item, u8 y)
 {
-    s32 x;
-    u8 *loc;
-
     if (item != INDEX_CANCEL)
     {
-        ConvertIntToDecimalStringN(gStringVar1, Shop_GetBuyPrice(item), 0, 4);
-        x = 4 - StringLength(gStringVar1);
-        loc = gStringVar4;
-        while (x-- != 0)
-            *loc++ = 0;
-        StringExpandPlaceholders(loc, gText_PokedollarVar1);
-        BuyMenuPrint(windowId, FONT_SMALL, gStringVar4, 0x69, y, 0, 0, TEXT_SKIP_DRAW, 1);
+        BuyMenuFormatPriceString(Shop_GetBuyPrice(item), gStringVar4);
+        BuyMenuPrint(windowId, FONT_SMALL, gStringVar4, BuyMenuPricePrintX(windowId, gStringVar4),
+                     y, 0, 0, TEXT_SKIP_DRAW, 1);
     }
 }
 

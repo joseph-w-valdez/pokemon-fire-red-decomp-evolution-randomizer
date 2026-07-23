@@ -65,6 +65,10 @@ static void PrintOptionMenuHeader(void);
 static void DrawOptionMenuBg(void);
 static void LoadOptionMenuItemNames(void);
 static void UpdateSettingSelectionDisplay(u16 selection);
+#if RH_DISABLE_HELP_LR
+static u16 ButtonMode_ToMenu(u16 mode);
+static u16 ButtonMode_FromMenu(u16 menu);
+#endif
 
 // Data Definitions
 static const struct WindowTemplate sOptionMenuWinTemplates[] =
@@ -132,9 +136,17 @@ static const struct BgTemplate sOptionMenuBgTemplates[] =
 
 static const u16 sOptionMenuPalette[] = INCBIN_U16("graphics/misc/option_menu.gbapal");
 #if RH_FAST_TEXT_ONLY
+#if RH_DISABLE_HELP_LR
+static const u16 sOptionMenuItemCounts[MENUITEM_COUNT] = {2, 2, 2, 2, 2, 10, 0};
+#else
 static const u16 sOptionMenuItemCounts[MENUITEM_COUNT] = {2, 2, 2, 2, 3, 10, 0};
+#endif
+#else
+#if RH_DISABLE_HELP_LR
+static const u16 sOptionMenuItemCounts[MENUITEM_COUNT] = {3, 2, 2, 2, 2, 10, 0};
 #else
 static const u16 sOptionMenuItemCounts[MENUITEM_COUNT] = {3, 2, 2, 2, 3, 10, 0};
+#endif
 #endif
 
 static const u8 *const sOptionMenuItemsNames[MENUITEM_COUNT] =
@@ -180,9 +192,15 @@ static const u8 *const sSoundOptions[] =
 
 static const u8 *const sButtonTypeOptions[] =
 {
+#if RH_DISABLE_HELP_LR
+    // Menu indices 0/1 map to LR / L=A (see ButtonMode_* helpers).
+    gText_ButtonTypeLR,
+    gText_ButtonTypeLEqualsA
+#else
     gText_ButtonTypeHelp,
-	gText_ButtonTypeLR,
-	gText_ButtonTypeLEqualsA
+    gText_ButtonTypeLR,
+    gText_ButtonTypeLEqualsA
+#endif
 };
 
 static const u8 sOptionMenuPickSwitchCancelTextColor[] = {TEXT_DYNAMIC_COLOR_6, TEXT_COLOR_WHITE, TEXT_COLOR_DARK_GRAY};
@@ -219,7 +237,11 @@ void CB2_OptionsMenuFromStartMenu(void)
     sOptionMenuPtr->option[MENUITEM_BATTLESCENE] = gSaveBlock2Ptr->optionsBattleSceneOff;
     sOptionMenuPtr->option[MENUITEM_BATTLESTYLE] = gSaveBlock2Ptr->optionsBattleStyle;
     sOptionMenuPtr->option[MENUITEM_SOUND] = gSaveBlock2Ptr->optionsSound;
+#if RH_DISABLE_HELP_LR
+    sOptionMenuPtr->option[MENUITEM_BUTTONMODE] = ButtonMode_ToMenu(gSaveBlock2Ptr->optionsButtonMode);
+#else
     sOptionMenuPtr->option[MENUITEM_BUTTONMODE] = gSaveBlock2Ptr->optionsButtonMode;
+#endif
     sOptionMenuPtr->option[MENUITEM_FRAMETYPE] = gSaveBlock2Ptr->optionsWindowFrameType;
 
     // Instant was removed; clamp it (and any invalid value) to Faster.
@@ -529,7 +551,11 @@ static void CloseAndSaveOptionMenu(u8 taskId)
     gSaveBlock2Ptr->optionsBattleSceneOff = sOptionMenuPtr->option[MENUITEM_BATTLESCENE];
     gSaveBlock2Ptr->optionsBattleStyle = sOptionMenuPtr->option[MENUITEM_BATTLESTYLE];
     gSaveBlock2Ptr->optionsSound = sOptionMenuPtr->option[MENUITEM_SOUND];
+#if RH_DISABLE_HELP_LR
+    gSaveBlock2Ptr->optionsButtonMode = ButtonMode_FromMenu(sOptionMenuPtr->option[MENUITEM_BUTTONMODE]);
+#else
     gSaveBlock2Ptr->optionsButtonMode = sOptionMenuPtr->option[MENUITEM_BUTTONMODE];
+#endif
     gSaveBlock2Ptr->optionsWindowFrameType = sOptionMenuPtr->option[MENUITEM_FRAMETYPE];
     SetPokemonCryStereo(gSaveBlock2Ptr->optionsSound);
     FREE_AND_SET_NULL(sOptionMenuPtr);
@@ -588,3 +614,20 @@ static void UpdateSettingSelectionDisplay(u16 selection)
     SetGpuReg(REG_OFFSET_WIN0V, WIN_RANGE(y, y + maxLetterHeight));
     SetGpuReg(REG_OFFSET_WIN0H, WIN_RANGE(0x10, 0xE0));
 }
+
+#if RH_DISABLE_HELP_LR
+// Menu only offers LR / L=A (indices 0 / 1). Save still uses vanilla enums.
+static u16 ButtonMode_ToMenu(u16 mode)
+{
+    if (mode == OPTIONS_BUTTON_MODE_LR)
+        return 0;
+    return 1; // L=A (Help migrates here too)
+}
+
+static u16 ButtonMode_FromMenu(u16 menu)
+{
+    if (menu == 0)
+        return OPTIONS_BUTTON_MODE_LR;
+    return OPTIONS_BUTTON_MODE_L_EQUALS_A;
+}
+#endif

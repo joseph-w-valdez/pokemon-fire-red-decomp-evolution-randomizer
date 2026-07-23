@@ -5069,6 +5069,63 @@ static u8 GetNatureFromPersonality(u32 personality)
     return personality % NUM_NATURES;
 }
 
+bool8 SetMonNature(struct Pokemon *mon, u8 nature)
+{
+    struct BoxPokemon *boxMon = &mon->box;
+    struct PokemonSubstruct0 sub0;
+    struct PokemonSubstruct1 sub1;
+    struct PokemonSubstruct2 sub2;
+    struct PokemonSubstruct3 sub3;
+    u32 otId;
+    u32 oldPersonality;
+    u32 newPersonality;
+    u16 species;
+    u8 gender;
+    bool8 shiny;
+    u32 i;
+
+    if (GetNature(mon) == nature)
+        return TRUE;
+
+    otId = GetMonData(mon, MON_DATA_OT_ID, NULL);
+    oldPersonality = GetMonData(mon, MON_DATA_PERSONALITY, NULL);
+    species = GetMonData(mon, MON_DATA_SPECIES, NULL);
+    gender = GetGenderFromSpeciesAndPersonality(species, oldPersonality);
+    shiny = IsShinyOtIdPersonality(otId, oldPersonality);
+
+    DecryptBoxMon(boxMon);
+    memcpy(&sub0, GetSubstruct(boxMon, oldPersonality, 0), sizeof(sub0));
+    memcpy(&sub1, GetSubstruct(boxMon, oldPersonality, 1), sizeof(sub1));
+    memcpy(&sub2, GetSubstruct(boxMon, oldPersonality, 2), sizeof(sub2));
+    memcpy(&sub3, GetSubstruct(boxMon, oldPersonality, 3), sizeof(sub3));
+
+    for (i = 0; i < 60000; i++)
+    {
+        newPersonality = Random32();
+        if (GetNatureFromPersonality(newPersonality) != nature)
+            continue;
+        if (GetGenderFromSpeciesAndPersonality(species, newPersonality) != gender)
+            continue;
+        if (IsShinyOtIdPersonality(otId, newPersonality) != shiny)
+            continue;
+
+        boxMon->personality = newPersonality;
+        memcpy(GetSubstruct(boxMon, newPersonality, 0), &sub0, sizeof(sub0));
+        memcpy(GetSubstruct(boxMon, newPersonality, 1), &sub1, sizeof(sub1));
+        memcpy(GetSubstruct(boxMon, newPersonality, 2), &sub2, sizeof(sub2));
+        memcpy(GetSubstruct(boxMon, newPersonality, 3), &sub3, sizeof(sub3));
+        boxMon->checksum = CalculateBoxMonChecksum(boxMon);
+        EncryptBoxMon(boxMon);
+        CalculateMonStats(mon);
+        return TRUE;
+    }
+
+    boxMon->personality = oldPersonality;
+    boxMon->checksum = CalculateBoxMonChecksum(boxMon);
+    EncryptBoxMon(boxMon);
+    return FALSE;
+}
+
 u16 GetEvolutionTargetSpecies(struct Pokemon *mon, u8 type, u16 evolutionItem)
 {
     int i;

@@ -35,6 +35,10 @@
 #include "pokemon_storage_system.h"
 #include "constants/sound.h"
 #include "evolution_scene.h"
+#include "stat_radar.h"
+#include "type_icon.h"
+#include "bg_pal_slots.h"
+#include "constants/rgb.h"
 
 // needs conflicting header to match (curIndex is s8 in the function, but has to be defined as u8 here)
 extern s16 SeekToNextMonInBox(struct BoxPokemon * boxMons, u8 curIndex, u8 maxIndex, u8 flags);
@@ -124,6 +128,12 @@ static bool32 CurrentMonIsFromGBA(void);
 static u8 PokeSum_BufferOtName_IsEqualToCurrentOwner(struct Pokemon * mon);
 static void PokeSum_PrintAbilityNameAndDesc(void);
 static void PokeSum_DrawMoveTypeIcons(void);
+static void PokeSum_DrawSkillsDetailRadars(void);
+static void PokeSum_DrawSkillsDetailHpTypeIcon(void);
+static void PokeSum_BlankSkillsDetailChrome(void);
+static void PokeSum_RestoreSkillsPageChrome(void);
+static void PokeSum_EnterSkillsDetail(void);
+static void PokeSum_ExitSkillsDetail(void);
 static void PokeSum_DestroySprites(void);
 static void PokeSum_FlipPages_HandleBgHofs(void);
 static void SwapMonMoveSlots(void);
@@ -327,6 +337,10 @@ static EWRAM_DATA u8 sLastViewedMonIndex = 0;
 static EWRAM_DATA u8 sMoveSelectionCursorPos = 0;
 static EWRAM_DATA u8 sMoveSwapCursorPos = 0;
 static EWRAM_DATA struct MonPicBounceState * sMonPicBounceState = NULL;
+
+// Skills detail subpage (A from Skills / B back). Lower panel blanked for EV/IV UI.
+static const u8 sText_Controls_PageDetailSkills[] = _("{DPAD_LEFTRIGHT}PAGE {A_BUTTON}DETAIL");
+static const u8 sText_Controls_SkillsDetailBack[] = _("{B_BUTTON}CANCEL");
 
 extern const u32 gSummaryScreen_PageSkills_Tilemap[];
 extern const u32 gSummaryScreen_PageMoves_Tilemap[];
@@ -650,6 +664,27 @@ static const u8 sPrintMoveTextColors[][3] = {
     {0, 5, 6}
 };
 
+static const u8 sEvRadarLabelHp[] = _("HP");
+static const u8 sEvRadarLabelAtk[] = _("ATK");
+static const u8 sEvRadarLabelDef[] = _("DEF");
+static const u8 sEvRadarLabelSpe[] = _("SPE");
+static const u8 sEvRadarLabelSpA[] = _("SPA");
+static const u8 sEvRadarLabelSpD[] = _("SPD");
+
+static const u8 *const sEvRadarLabels[6] =
+{
+    sEvRadarLabelHp,
+    sEvRadarLabelAtk,
+    sEvRadarLabelDef,
+    sEvRadarLabelSpe,
+    sEvRadarLabelSpA,
+    sEvRadarLabelSpD,
+};
+
+static const u8 sEvRadarTextColors[3] = {0, 14, 15}; // black text, white shadow (BG pal 5)
+static const u8 sText_SkillsRadarEv[] = _("EV");
+static const u8 sText_SkillsRadarIv[] = _("IV");
+
 static const struct BgTemplate sBgTempaltes[] = 
 {
 	 {
@@ -710,6 +745,9 @@ static const struct BgTemplate sBgTempaltes[] =
 #define POKESUM_WIN_MOVES_4          4
 #define POKESUM_WIN_MOVES_5          5
 #define POKESUM_WIN_MOVES_6          6
+
+// Skills detail canvas (pal 5) hosts EV/IV radars; type badges use BG pal 6.
+#define POKESUM_HP_TYPE_PAL          6
 
 static const struct WindowTemplate sWindowTemplates_Permanent_Bg1[] =
 {
@@ -853,6 +891,49 @@ static const struct WindowTemplate sWindowTemplates_Skills[] =
     },
 };
 
+// Skills detail (A): stats through SPEED + full-width pal-5 canvas for EV/IV radars.
+static const struct WindowTemplate sWindowTemplates_SkillsDetail[] =
+{
+    [POKESUM_WIN_SKILLS_3 - 3] = {
+        .bg = 0,
+        .tilemapLeft = 20,
+        .tilemapTop = 2,
+        .width = 10,
+        .height = 11, // HP–SPEED only (EXP nums omitted on detail)
+        .paletteNum = 6,
+        .baseBlock = 0x0001
+    },
+    [POKESUM_WIN_SKILLS_4 - 3] = {
+        .bg = 0,
+        .tilemapLeft = 0,
+        .tilemapTop = 13,
+        .width = 30,
+        .height = 7,
+        .paletteNum = 5, // radar blues at indices 1 / 4
+        .baseBlock = 0x006f
+    },
+    // Same-pal type window (Moves win5 pattern): idx 0 punches through to stripes.
+    // 7 tiles = host canvas room for longest "HP-*"+FIT pills; pill width itself is runtime FIT.
+    [POKESUM_WIN_SKILLS_5 - 3] = {
+        .bg = 0,
+        .tilemapLeft = 12, // keep right edge near prior 15+4 tile slot
+        .tilemapTop = 15,
+        .width = 7,
+        .height = 2,
+        .paletteNum = 6,
+        .baseBlock = 0x0141
+    },
+    [POKESUM_WIN_SKILLS_6 - 3] = {
+        .bg = 0,
+        .tilemapLeft = 0,
+        .tilemapTop = 0,
+        .width = 0,
+        .height = 0,
+        .paletteNum = 0,
+        .baseBlock = 0x0000
+    },
+};
+
 static const struct WindowTemplate sWindowTemplates_Moves[] = 
 {
     [POKESUM_WIN_MOVES_3 - 3] = {
@@ -870,7 +951,7 @@ static const struct WindowTemplate sWindowTemplates_Moves[] =
         .tilemapTop = 7,
         .width = 15,
         .height = 13,
-        .paletteNum = 6,
+        .paletteNum = 5,
         .baseBlock = 0x00b5
     },
     [POKESUM_WIN_MOVES_5 - 3] = {
@@ -1124,7 +1205,8 @@ static void Task_InputHandler_Info(u8 taskId)
         else if (FuncIsActiveTask(Task_PokeSum_SwitchDisplayedPokemon))
             return;
 
-        if (sMonSummaryScreen->curPageIndex != PSS_PAGE_MOVES_INFO)
+        if (sMonSummaryScreen->curPageIndex != PSS_PAGE_MOVES_INFO
+            && sMonSummaryScreen->curPageIndex != PSS_PAGE_SKILLS_DETAIL)
         {
             if (IsPageFlipInput(1) == TRUE)
             {
@@ -1183,6 +1265,10 @@ static void Task_InputHandler_Info(u8 taskId)
                     PlaySE(SE_SELECT);
                     sMonSummaryScreen->state3270 = PSS_STATE3270_ATEXIT_FADEOUT;
                 }
+                else if (sMonSummaryScreen->curPageIndex == PSS_PAGE_SKILLS)
+                {
+                    PokeSum_EnterSkillsDetail();
+                }
                 else if (sMonSummaryScreen->curPageIndex == PSS_PAGE_MOVES)
                 {
                     PlaySE(SE_SELECT);
@@ -1195,7 +1281,10 @@ static void Task_InputHandler_Info(u8 taskId)
             }
             else if (JOY_NEW(B_BUTTON))
             {
-                sMonSummaryScreen->state3270 = PSS_STATE3270_ATEXIT_FADEOUT;
+                if (sMonSummaryScreen->curPageIndex == PSS_PAGE_SKILLS_DETAIL)
+                    PokeSum_ExitSkillsDetail();
+                else
+                    sMonSummaryScreen->state3270 = PSS_STATE3270_ATEXIT_FADEOUT;
             }
         }
         break;
@@ -2021,7 +2110,20 @@ static u8 PokeSum_HandleLoadBgGfx(void)
 
         break;
     case 1:
-        ListMenuLoadStdPalAt(BG_PLTT_ID(6), 1);
+        // Bank 6: move-type icons (+ TypeIcon for reuse / future gallery).
+        TypeIcon_LoadPalette(POKESUM_HP_TYPE_PAL);
+        // Skills-detail radar canvas (pal 5): type-text colors + header blues.
+        ListMenuLoadStdPalAt(BG_PLTT_ID(5), 1);
+        {
+            // Same blues as summary chrome (PAGE strip): fill + darker bezel.
+            static const u8 sEvRadarBlueIdx[] = { 1, 4 };
+            static const u16 sEvRadarBlues[] = {
+                RGB8(0, 123, 197),
+                RGB8(0, 74, 148),
+            };
+
+            LoadBgPalSlots(5, sEvRadarBlueIdx, sEvRadarBlues, 2);
+        }
         LoadPalette(sTextHeaderPalette, BG_PLTT_ID(7), PLTT_SIZE_4BPP);
         break;
     case 2:
@@ -2452,6 +2554,7 @@ static void PokeSum_PrintRightPaneText(void)
         PrintInfoPage();
         break;
     case PSS_PAGE_SKILLS:
+    case PSS_PAGE_SKILLS_DETAIL:
         PrintSkillsPage();
         break;
     case PSS_PAGE_MOVES:
@@ -2505,8 +2608,13 @@ static void PrintSkillsPage(void)
     AddTextPrinterParameterized3(sMonSummaryScreen->windowIds[POKESUM_WIN_RIGHT_PANE], FONT_NORMAL, 50 + sMonSkillsPrinterXpos->spAStr, 48, sLevelNickTextColors[0], TEXT_SKIP_DRAW, sMonSummaryScreen->summary.statValueStrBufs[PSS_STAT_SPA]);
     AddTextPrinterParameterized3(sMonSummaryScreen->windowIds[POKESUM_WIN_RIGHT_PANE], FONT_NORMAL, 50 + sMonSkillsPrinterXpos->spDStr, 61, sLevelNickTextColors[0], TEXT_SKIP_DRAW, sMonSummaryScreen->summary.statValueStrBufs[PSS_STAT_SPD]);
     AddTextPrinterParameterized3(sMonSummaryScreen->windowIds[POKESUM_WIN_RIGHT_PANE], FONT_NORMAL, 50 + sMonSkillsPrinterXpos->speStr, 74, sLevelNickTextColors[0], TEXT_SKIP_DRAW, sMonSummaryScreen->summary.statValueStrBufs[PSS_STAT_SPE]);
-    AddTextPrinterParameterized3(sMonSummaryScreen->windowIds[POKESUM_WIN_RIGHT_PANE], FONT_NORMAL, 15 + sMonSkillsPrinterXpos->expStr, 87, sLevelNickTextColors[0], TEXT_SKIP_DRAW, sMonSummaryScreen->summary.expPointsStrBuf);
-    AddTextPrinterParameterized3(sMonSummaryScreen->windowIds[POKESUM_WIN_RIGHT_PANE], FONT_NORMAL, 15 + sMonSkillsPrinterXpos->toNextLevel, 100, sLevelNickTextColors[0], TEXT_SKIP_DRAW, sMonSummaryScreen->summary.expToNextLevelStrBuf);
+
+    // Skills detail blanks EXP nums — room for EV/IV test UI in the lower panel.
+    if (sMonSummaryScreen->curPageIndex != PSS_PAGE_SKILLS_DETAIL)
+    {
+        AddTextPrinterParameterized3(sMonSummaryScreen->windowIds[POKESUM_WIN_RIGHT_PANE], FONT_NORMAL, 15 + sMonSkillsPrinterXpos->expStr, 87, sLevelNickTextColors[0], TEXT_SKIP_DRAW, sMonSummaryScreen->summary.expPointsStrBuf);
+        AddTextPrinterParameterized3(sMonSummaryScreen->windowIds[POKESUM_WIN_RIGHT_PANE], FONT_NORMAL, 15 + sMonSkillsPrinterXpos->toNextLevel, 100, sLevelNickTextColors[0], TEXT_SKIP_DRAW, sMonSummaryScreen->summary.expToNextLevelStrBuf);
+    }
 }
 
 #define GetMoveNamePrinterYpos(x) ((x) * 28 + 5)
@@ -2590,6 +2698,10 @@ static void PokeSum_PrintBottomPaneText(void)
     case PSS_PAGE_SKILLS:
         PokeSum_PrintExpPoints_NextLv();
         break;
+    case PSS_PAGE_SKILLS_DETAIL:
+        PokeSum_DrawSkillsDetailRadars();
+        PokeSum_DrawSkillsDetailHpTypeIcon();
+        break;
     case PSS_PAGE_MOVES_INFO:
         PokeSum_PrintSelectedMoveStats();
         break;
@@ -2598,6 +2710,80 @@ static void PokeSum_PrintBottomPaneText(void)
     }
 
     PutWindowTilemap(sMonSummaryScreen->windowIds[POKESUM_WIN_TRAINER_MEMO]);
+    if (sMonSummaryScreen->curPageIndex == PSS_PAGE_SKILLS_DETAIL)
+        PutWindowTilemap(sMonSummaryScreen->windowIds[5]);
+}
+
+static void PokeSum_DrawSkillsDetailRadar(u8 windowId, s16 x, const u16 *values, u16 valueMax, const u8 *title)
+{
+    // Cage @ 90% of Moves MEDIUM (r≈19); labels stay on the full r=19 ring.
+    struct StatRadarConfig config;
+    AddTextPrinterParameterized3(windowId, FONT_SMALL, x + 2, 0,
+                                 sEvRadarTextColors, TEXT_SKIP_DRAW, title);
+
+    StatRadar_SetDefaults(&config);
+    StatRadar_ApplySizePreset(&config, STAT_RADAR_SIZE_MEDIUM);
+    config.nudgeX = 0;
+    config.scalePercent = 90;
+    config.radius = 19;
+    config.labelRadius = 19;
+    config.values = values;
+    config.valueMax = valueMax;
+    config.axisCount = 6;
+    config.gridColor = 14;
+    config.fillColor = 1;      // RGB8(0,123,197)
+    config.outlineColor = 4;   // RGB8(0,74,148)
+    config.fontId = FONT_SMALL;
+    config.textColors = sEvRadarTextColors;
+    config.labels = sEvRadarLabels;
+    StatRadar_PlaceInRect(&config, windowId, x, 0, 120, 56, 2);
+    config.nudgeY = -2;
+    StatRadar_Draw(&config);
+}
+
+static void PokeSum_DrawSkillsDetailRadars(void)
+{
+    // Dual radars in Skills detail canvas (pal 5). Left = EVs, right = IVs.
+    u16 evs[6];
+    u16 ivs[6];
+    u8 windowId = sMonSummaryScreen->windowIds[POKESUM_WIN_TRAINER_MEMO];
+
+    if (sMonSummaryScreen->isEgg)
+        return;
+
+    evs[0] = GetMonData(&sMonSummaryScreen->currentMon, MON_DATA_HP_EV);
+    evs[1] = GetMonData(&sMonSummaryScreen->currentMon, MON_DATA_ATK_EV);
+    evs[2] = GetMonData(&sMonSummaryScreen->currentMon, MON_DATA_DEF_EV);
+    evs[3] = GetMonData(&sMonSummaryScreen->currentMon, MON_DATA_SPEED_EV);
+    evs[4] = GetMonData(&sMonSummaryScreen->currentMon, MON_DATA_SPATK_EV);
+    evs[5] = GetMonData(&sMonSummaryScreen->currentMon, MON_DATA_SPDEF_EV);
+
+    ivs[0] = GetMonData(&sMonSummaryScreen->currentMon, MON_DATA_HP_IV);
+    ivs[1] = GetMonData(&sMonSummaryScreen->currentMon, MON_DATA_ATK_IV);
+    ivs[2] = GetMonData(&sMonSummaryScreen->currentMon, MON_DATA_DEF_IV);
+    ivs[3] = GetMonData(&sMonSummaryScreen->currentMon, MON_DATA_SPEED_IV);
+    ivs[4] = GetMonData(&sMonSummaryScreen->currentMon, MON_DATA_SPATK_IV);
+    ivs[5] = GetMonData(&sMonSummaryScreen->currentMon, MON_DATA_SPDEF_IV);
+
+    PokeSum_DrawSkillsDetailRadar(windowId, 0, evs, 252, sText_SkillsRadarEv);
+    PokeSum_DrawSkillsDetailRadar(windowId, 120, ivs, 31, sText_SkillsRadarIv);
+}
+
+// Moves-style same-pal type window (pal 6): clear to 0, blank pill + "HP " label.
+static void PokeSum_DrawSkillsDetailHpTypeIcon(void)
+{
+    u8 windowId = sMonSummaryScreen->windowIds[5];
+    u8 hpType;
+    struct TypeIconWidth widthCfg;
+
+    if (sMonSummaryScreen->isEgg)
+        return;
+
+    FillWindowPixelBuffer(windowId, 0);
+    hpType = TypeIcon_CalcHiddenPowerTypeFromMon(&sMonSummaryScreen->currentMon);
+    // FIT = labelW + 1px each side (reads better than flush fit-content).
+    TypeIcon_WidthSetFit(&widthCfg, 1, 0, 0, FALSE);
+    TypeIcon_DrawBlankEx(windowId, hpType, 0, 0, &widthCfg, gText_TypeIconHpPrefix);
 }
 
 static void PokeSum_PrintTrainerMemo(void)
@@ -2853,6 +3039,73 @@ static void PokeSum_PrintExpPoints_NextLv(void)
                                  gText_PokeSum_NextLv);
 }
 
+// Instant Skills ↔ detail swap (no slide flip — detail is outside L/R page order).
+static void PokeSum_BlankSkillsDetailChrome(void)
+{
+    // Wipe lower Skills chrome from below SPEED (EXP. / ABILITY + EXP panel).
+    // Skills right pane: SPEED ~tile row 11–12; EXP block from row 13.
+    FillBgTilemapBufferRect(sMonSummaryScreen->skillsPageBgNum, 0, 0, 13, 30, 7, 0);
+    FillBgTilemapBufferRect(sMonSummaryScreen->infoAndMovesPageBgNum, 0, 0, 13, 30, 7, 0);
+    CopyBgTilemapBufferToVram(sMonSummaryScreen->skillsPageBgNum);
+    CopyBgTilemapBufferToVram(sMonSummaryScreen->infoAndMovesPageBgNum);
+}
+
+static void PokeSum_RestoreSkillsPageChrome(void)
+{
+    CopyToBgTilemapBuffer(sMonSummaryScreen->skillsPageBgNum, gSummaryScreen_PageSkills_Tilemap, 0, 0);
+    CopyToBgTilemapBuffer(sMonSummaryScreen->infoAndMovesPageBgNum, gSummaryScreen_PageSkills_Tilemap, 0, 0);
+    CopyBgTilemapBufferToVram(sMonSummaryScreen->skillsPageBgNum);
+    CopyBgTilemapBufferToVram(sMonSummaryScreen->infoAndMovesPageBgNum);
+}
+
+static void PokeSum_RedrawSkillsOrDetailPage(void)
+{
+    PokeSum_PrintPageHeaderText(sMonSummaryScreen->curPageIndex);
+    PokeSum_PrintRightPaneText();
+    PokeSum_PrintBottomPaneText();
+    PokeSum_PrintAbilityDataOrMoveTypes();
+    PutWindowTilemap(sMonSummaryScreen->windowIds[POKESUM_WIN_PAGE_NAME]);
+    PutWindowTilemap(sMonSummaryScreen->windowIds[POKESUM_WIN_CONTROLS]);
+    PutWindowTilemap(sMonSummaryScreen->windowIds[POKESUM_WIN_RIGHT_PANE]);
+    PutWindowTilemap(sMonSummaryScreen->windowIds[POKESUM_WIN_TRAINER_MEMO]);
+    CopyWindowToVram(sMonSummaryScreen->windowIds[POKESUM_WIN_PAGE_NAME], COPYWIN_FULL);
+    CopyWindowToVram(sMonSummaryScreen->windowIds[POKESUM_WIN_CONTROLS], COPYWIN_FULL);
+    CopyWindowToVram(sMonSummaryScreen->windowIds[POKESUM_WIN_RIGHT_PANE], COPYWIN_FULL);
+    CopyWindowToVram(sMonSummaryScreen->windowIds[POKESUM_WIN_TRAINER_MEMO], COPYWIN_FULL);
+    if (sMonSummaryScreen->curPageIndex == PSS_PAGE_SKILLS
+        || sMonSummaryScreen->curPageIndex == PSS_PAGE_SKILLS_DETAIL)
+    {
+        PutWindowTilemap(sMonSummaryScreen->windowIds[5]);
+        CopyWindowToVram(sMonSummaryScreen->windowIds[5], COPYWIN_FULL);
+    }
+    CopyBgTilemapBufferToVram(0);
+    PokeSum_SetHelpContext();
+}
+
+static void PokeSum_EnterSkillsDetail(void)
+{
+    PlaySE(SE_SELECT);
+    PokeSum_RemoveWindows(PSS_PAGE_SKILLS);
+    sMonSummaryScreen->curPageIndex = PSS_PAGE_SKILLS_DETAIL;
+    sMonSummaryScreen->pageFlipDirection = 1;
+    PokeSum_AddWindows(PSS_PAGE_SKILLS_DETAIL);
+    ShowOrHideExpBarObjs(TRUE);
+    PokeSum_BlankSkillsDetailChrome();
+    PokeSum_RedrawSkillsOrDetailPage();
+}
+
+static void PokeSum_ExitSkillsDetail(void)
+{
+    PlaySE(SE_SELECT);
+    PokeSum_RemoveWindows(PSS_PAGE_SKILLS_DETAIL);
+    sMonSummaryScreen->curPageIndex = PSS_PAGE_SKILLS;
+    sMonSummaryScreen->pageFlipDirection = 0;
+    PokeSum_AddWindows(PSS_PAGE_SKILLS);
+    PokeSum_RestoreSkillsPageChrome();
+    ShowOrHideExpBarObjs(FALSE);
+    PokeSum_RedrawSkillsOrDetailPage();
+}
+
 static void PokeSum_PrintSelectedMoveStats(void)
 {
     if (sMoveSelectionCursorPos < 5)
@@ -2886,14 +3139,17 @@ static void PokeSum_PrintAbilityDataOrMoveTypes(void)
         break;
     case PSS_PAGE_SKILLS:
         PokeSum_PrintAbilityNameAndDesc();
+        PutWindowTilemap(sMonSummaryScreen->windowIds[5]);
+        break;
+    case PSS_PAGE_SKILLS_DETAIL:
+        // Ability window is a dummy; canvas owns the lower strip (EV/IV radars).
         break;
     case PSS_PAGE_MOVES:
     case PSS_PAGE_MOVES_INFO:
         PokeSum_DrawMoveTypeIcons();
+        PutWindowTilemap(sMonSummaryScreen->windowIds[5]);
         break;
     }
-
-    PutWindowTilemap(sMonSummaryScreen->windowIds[5]);
 }
 
 static void PokeSum_PrintAbilityNameAndDesc(void)
@@ -2942,7 +3198,12 @@ static void PokeSum_PrintPageHeaderText(u8 curPageIndex)
         break;
     case PSS_PAGE_SKILLS:
         PokeSum_PrintPageName(gText_PokeSum_PageName_PokemonSkills);
-        PokeSum_PrintControlsString(gText_PokeSum_Controls_Page);
+        PokeSum_PrintControlsString(sText_Controls_PageDetailSkills);
+        PrintMonLevelNickOnWindow2(gText_PokeSum_NoData);
+        break;
+    case PSS_PAGE_SKILLS_DETAIL:
+        PokeSum_PrintPageName(gText_PokeSum_PageName_PokemonSkills);
+        PokeSum_PrintControlsString(sText_Controls_SkillsDetailBack);
         PrintMonLevelNickOnWindow2(gText_PokeSum_NoData);
         break;
     case PSS_PAGE_MOVES:
@@ -3160,6 +3421,9 @@ static void PokeSum_CreateWindows(void)
         case PSS_PAGE_SKILLS:
             sMonSummaryScreen->windowIds[i + 3] = AddWindow(&sWindowTemplates_Skills[i]);
             break;
+        case PSS_PAGE_SKILLS_DETAIL:
+            sMonSummaryScreen->windowIds[i + 3] = AddWindow(&sWindowTemplates_SkillsDetail[i]);
+            break;
         case PSS_PAGE_MOVES:
         case PSS_PAGE_MOVES_INFO:
             sMonSummaryScreen->windowIds[i + 3] = AddWindow(&sWindowTemplates_Moves[i]);
@@ -3205,12 +3469,16 @@ static void PokeSum_AddWindows(u8 curPageIndex)
             sMonSummaryScreen->windowIds[i + 3] = AddWindow(&sWindowTemplates_Info[i]);
             break;
         case PSS_PAGE_SKILLS:
-        default:
             sMonSummaryScreen->windowIds[i + 3] = AddWindow(&sWindowTemplates_Skills[i]);
+            break;
+        case PSS_PAGE_SKILLS_DETAIL:
+            sMonSummaryScreen->windowIds[i + 3] = AddWindow(&sWindowTemplates_SkillsDetail[i]);
             break;
         case PSS_PAGE_MOVES:
         case PSS_PAGE_MOVES_INFO:
             sMonSummaryScreen->windowIds[i + 3] = AddWindow(&sWindowTemplates_Moves[i]);
+            break;
+        default:
             break;
         }
 }
@@ -3232,6 +3500,7 @@ static void PokeSum_SetHelpContext(void)
         SetHelpContext(HELPCONTEXT_POKEMON_INFO);
         break;
     case PSS_PAGE_SKILLS:
+    case PSS_PAGE_SKILLS_DETAIL:
         SetHelpContext(HELPCONTEXT_POKEMON_SKILLS);
         break;
     case PSS_PAGE_MOVES:
@@ -3304,6 +3573,7 @@ static void PokeSum_DrawPageProgressTiles(void)
         }
         break;
     case PSS_PAGE_SKILLS:
+    case PSS_PAGE_SKILLS_DETAIL:
         FillBgTilemapBufferRect(3, 49 + PAGE_PROGRESS_BASE_TILE_NUM, 13, 0, 1, 1, 0);
         FillBgTilemapBufferRect(3, 65 + PAGE_PROGRESS_BASE_TILE_NUM, 13, 1, 1, 1, 0);
         FillBgTilemapBufferRect(3,  1 + PAGE_PROGRESS_BASE_TILE_NUM, 14, 0, 1, 1, 0);
@@ -3370,6 +3640,7 @@ static void PokeSum_PrintMonTypeIcons(void)
         }
         break;
     case PSS_PAGE_SKILLS:
+    case PSS_PAGE_SKILLS_DETAIL:
         break;
     case PSS_PAGE_MOVES:
         break;
@@ -5172,6 +5443,7 @@ static void PokeSum_UpdateWin1ActiveFlag(u8 curPageIndex)
     {
     case PSS_PAGE_INFO:
     case PSS_PAGE_SKILLS:
+    case PSS_PAGE_SKILLS_DETAIL:
     case PSS_PAGE_MOVES:
         SetGpuReg(REG_OFFSET_DISPCNT, GetGpuReg(REG_OFFSET_DISPCNT) | DISPCNT_WIN1_ON);
         break;

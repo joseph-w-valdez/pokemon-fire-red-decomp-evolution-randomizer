@@ -1712,6 +1712,11 @@ void CB2_ContinueSavedGame(void)
     ScriptContext_Init();
     UnlockPlayerFieldControls();
     RhDebugMenu_SyncKeyItem();
+#if RH_DISABLE_HELP_LR
+    // Existing saves on Help → L=A (Help is no longer a Button Mode choice).
+    if (gSaveBlock2Ptr->optionsButtonMode == OPTIONS_BUTTON_MODE_HELP)
+        gSaveBlock2Ptr->optionsButtonMode = OPTIONS_BUTTON_MODE_L_EQUALS_A;
+#endif
     gFieldCallback2 = NULL;
     gExitStairsMovementDisabled = TRUE;
     if (UseContinueGameWarp() == TRUE)

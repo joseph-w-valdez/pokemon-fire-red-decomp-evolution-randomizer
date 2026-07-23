@@ -1,5 +1,6 @@
 #include "global.h"
 #include "gflib.h"
+#include "blit.h"
 #include "menu.h"
 #include "list_menu.h"
 #include "menu_indicators.h"
@@ -755,4 +756,21 @@ void ListMenuLoadStdPalAt(u8 palOffset, u8 palId)
 void BlitMenuInfoIcon(u8 windowId, u8 iconId, u16 x, u16 y)
 {
     BlitBitmapRectToWindow(windowId, &gMenuInfoElements_Gfx[sMenuInfoIcons[iconId].offset * TILE_SIZE_4BPP], 0, 0, 128, 128, x, y, sMenuInfoIcons[iconId].width, sMenuInfoIcons[iconId].height);
+}
+
+void BlitMenuInfoIconOpaque(u8 windowId, u8 iconId, u16 x, u16 y)
+{
+    struct Bitmap src;
+    struct Bitmap dst;
+    const struct MoveMenuInfoIcon *icon = &sMenuInfoIcons[iconId];
+
+    src.pixels = (u8 *)&gMenuInfoElements_Gfx[icon->offset * TILE_SIZE_4BPP];
+    src.width = 128;
+    src.height = 128;
+
+    dst.pixels = gWindows[windowId].tileData;
+    dst.width = 8 * gWindows[windowId].window.width;
+    dst.height = 8 * gWindows[windowId].window.height;
+
+    BlitBitmapRect4BitWithoutColorKey(&src, &dst, 0, 0, x, y, icon->width, icon->height);
 }

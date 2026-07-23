@@ -1,3 +1,5 @@
+#include "config.h"
+
 CeladonCity_DepartmentStore_5F_MapScripts::
 	.byte 0
 
@@ -56,6 +58,9 @@ CeladonCity_DepartmentStore_5F_Vitamins::
 	.2byte ITEM_CALCIUM
 	.2byte ITEM_ZINC
 	.2byte ITEM_CARBOS
+#if RH_STAT_MAKEOVER
+	.2byte ITEM_FULL_MAKEOVER
+#endif
 	.2byte ITEM_NONE
 	release
 	end

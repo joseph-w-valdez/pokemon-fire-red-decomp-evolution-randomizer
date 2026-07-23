@@ -36,6 +36,7 @@ So flipping `RH_DEBUG_MENU` and rebuilding updates **existing saves on load**, n
 1. Open the bag → **Key Items** → **DEBUG MENU** → Use  
 2. Root options: Log, Give, Warp, Cheats, Events, Close  
 3. **L** closes the whole menu from any page (footer reminds you)  
+4. **SELECT** cycles the shared UI theme (same set as MAKEOVER — [ui-themes.md](ui-themes.md))
 4. **B** / **BACK** goes up one level  
 
 ### Give
@@ -104,7 +105,7 @@ Bool cheats show **FALSE** / **TRUE** on the line under the label; **EXP MULT** 
 | Infinite PP | Player moves do not consume PP in battle |
 | 0% Enemy Acc | Opponent moves always miss the accuracy roll |
 | 100% Catch Rate | Any ball always catches (like a Master Ball roll) |
-| Catch Trainer Pokémon | Skip the trainer ball-block. On a successful catch: faint+exp → dex page (if new) + nickname → give with **opponent as OT** → bag-style battle reshow → fight continues. See [`mid_battle_ui_pitfalls.md`](mid_battle_ui_pitfalls.md) if you change this flow. |
+| Catch Trainer Pokémon | Skip the trainer ball-block. On a successful catch: faint+exp → dex page (if new) + nickname → give with **opponent as OT** → bag-style battle reshow → fight continues. See [`ui-common-problems.md`](ui-common-problems.md#mid-battle-overlays) if you change this flow. |
 | Walk Thru Walls | Noclip on the overworld |
 | No Wild Encounters | Skip random grass / water / surf wild battles (fishing & Rock Smash still work) |
 | Instant Egg Hatch | Party eggs hatch on the next step check (very fast) |
@@ -144,6 +145,17 @@ RhLogf(sFmt, someInt, someGameString);
 Prefer **file-scope** `_("…")` strings for formats (inline `_()` in expressions can break agbcc/preproc). Specs: `%d`, `%x`/`%X`, `%s`/`%S`.
 
 **Already hooked:** debug menu open, give item success/fail, cheat ON/OFF (by name), event flag ON/OFF (by name), exp mult label, max money / nat dex apply, reset all cheats, warps.
+
+### Known issues (investigate later)
+
+**Log clear crash (mGBA)**
+
+- **Error:** `Jumped to invalid address: F7FD050A` (invalid PC — not a ROM/RAM target; likely a bad function pointer / corrupted return)
+- **Repro:**
+  1. Open Debug Menu → **Give** → spam Master Ball ×1 several times (fills Log with give lines)
+  2. Open **Log** — display may look wrong / corrupted
+  3. Press **A** to Clear — lines clear, then crash with the address above
+- **Suspects to check later:** `RhLog_Clear` + Log redraw/scrollbar teardown (`RhDebugMenu_HandleLogInput` / `RhDebugMenu_RedrawLog` / `src/rh_log.c`); ring-buffer indexing when near full; use-after-free of the heap log buffer
 
 ### Events
 
@@ -438,7 +450,7 @@ Scrollable lists show a proportional scrollbar in `WIN_SCROLL` (one tile past th
 
 The scrollbar paints into a caller-owned window: size/position come from the `WindowTemplate`, colors/pads/`highlightColor`/`taskPriority` from `ScrollbarConfig`. Map/unmap and palette load stay in the menu.
 
-List and footer chrome use [`framed_panel`](../include/framed_panel.h): `FramedPanel_Reset` (fill + std frame), `FramedPanel_Flush` (map + copy), `FramedPanel_ShowEmpty`, `FramedPanel_ShowText` (footer/prompts). Caller still owns window templates and `LoadStdWindowGfx`.
+List and footer chrome use [`framed_panel`](../include/framed_panel.h): `FramedPanel_Reset` (fill + std frame), `FramedPanel_Flush` (map + copy), `FramedPanel_ShowEmpty`, `FramedPanel_ShowText` (footer/prompts). Caller still owns window templates and `LoadStdWindowGfx`. Palettes come from shared [`ui_theme`](../include/ui_theme.h) (`UiTheme_ApplyStdWindow`; **SELECT** cycles).
 
 ---
 
