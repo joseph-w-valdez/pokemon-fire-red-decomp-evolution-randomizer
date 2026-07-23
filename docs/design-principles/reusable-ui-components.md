@@ -229,22 +229,14 @@ Vanilla FireRed ships a lot of **lettered / finished** UI sheets (`menu_info` ty
 
 TypeIcon blank pills are the template: stock path stays for Moves/Skills bake; blank path is the customizable component. When you eye the next sheet (`TYPE` / `POWER` bars, etc.), ask whether a painter + preview beats another frozen PNG.
 
-### Planned: generic chip core + presets
+### Done: generic chip core + TypeIcon preset
 
-Today TypeIcon owns both **GBA chip mechanics** (silhouette, surround, label center, Commit) and **type-pill policy** (32×12, 1px corners, type fill tables, `gTypeNames`). That works, but the next badge will copy-paste the hard parts.
+TypeIcon used to own both **GBA chip mechanics** and **type-pill policy**. Split:
 
-**Target split**
+| Layer | Owns | Lives in |
+|-------|------|----------|
+| Chip / shape core | W×H rect, 1px corners, solid/split fill, label + white-ink leftover-pad origin, same-pal vs mixed surround/`Commit` | [`ui_chip.c`](../../src/ui_chip.c) / [`ui_chip.h`](../../include/ui_chip.h) |
+| TypeIcon preset | Type fills, `gTypeNames` / HP prefix, stock bake, HP calc; blank APIs wrap UiChip | [`type_icon.c`](../../src/type_icon.c) |
+| Preview tools (next) | Any chip config → PNG; type sheet compare as one recipe | generalize `preview_type_pills.py` → `preview_ui_chip.py` |
 
-| Layer | Owns | Lives roughly in |
-|-------|------|------------------|
-| Chip / shape core | W×H rect, corner mask/policy, solid or split fill, optional string + white-ink leftover-pad origin, same-pal vs mixed surround/`Commit` | e.g. `ui_chip.c` / `include/ui_chip.h` |
-| Presets | Type pill (and later move-info bars, etc.): size, fills, name source | e.g. `type_icon.c` or `type_pill_preset.c` calling the core |
-| Preview tools | Render any chip config to PNG; optional stock-sheet compare recipes | generalize `tools/preview_type_pills.py` → `preview_ui_chip.py` (+ thin type recipe) |
-
-**Why this is reasonable**
-
-- Custom type pills become “a preset,” not a second one-off painter.
-- Preview stays ahead of the emulator for *any* shape, not only `menu_info` types.
-- Bake blits (`TypeIcon_Draw`) can remain for vanilla-identical call sites.
-
-Track also under [CHANGES.md](../../CHANGES.md) Likely next. Don’t block shipping more TypeIcon call sites on this refactor — extract when a second chip shape appears or the file gets painful.
+Existing `TypeIcon_*` call sites unchanged (thin wrappers). New badges should call `UiChip_*` directly.

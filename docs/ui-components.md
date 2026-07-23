@@ -246,9 +246,26 @@ Icon mode is 32×32 OBJ; front-pic mode is 64×64. Align helpers place from the 
 
 ---
 
+## UiChip
+
+Generic small chrome painter ([`include/ui_chip.h`](../include/ui_chip.h)): mid-split fill + 1px corners, optional label (white-ink leftover-pad center), FIXED/FIT width, mixed-palette surround/`Commit`.
+
+Type pills are a **preset**: existing `TypeIcon_*` blank/BlitBlank/Commit APIs wrap UiChip; stock bake and HP helpers stay in TypeIcon. New badges should call `UiChip_*` directly (custom fills/label style/height) instead of copying TypeIcon.
+
+```c
+UiChip_Draw(win, fillTop, fillBottom, x, y, w, h, cornerIdx); // same-pal: cornerIdx 0
+UiChip_PrintLabel(win, str, x, y, w, h, &style);
+// mixed-pal:
+UiChip_BlitLabeled(win, typePal, fillTop, fillBottom, x, y, w, h, str, &style, surround);
+PutWindowTilemap(win);
+UiChip_Commit(win, typePal, x, y, w, h, COPYWIN_FULL);
+```
+
+---
+
 ## TypeIcon
 
-Stock `menu_info` type badges **and** procedural blank pills (silhouette + `gTypeNames` via `FONT_SMALL`). Hidden Power IV helpers live beside the painters. Prefer the **same-pal window** path when you can spare a dedicated window; use mixed-palette only on shared foreign canvases.
+Stock `menu_info` type badges **and** procedural blank pills (UiChip silhouette + `gTypeNames` via `FONT_SMALL`). Hidden Power IV helpers live beside the painters. Prefer the **same-pal window** path when you can spare a dedicated window; use mixed-palette only on shared foreign canvases.
 
 | Painter | Art | When |
 |---------|-----|------|
